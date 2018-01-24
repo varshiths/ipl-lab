@@ -22,7 +22,7 @@ reserved = {
 }
 tokens += list(reserved.values())
 
-t_ignore = " \t\n"
+t_ignore = " \t"
 
 t_ASSIGN = r'='
 t_COMMA = r','
@@ -43,6 +43,10 @@ def t_NAME(t):
     r'[a-zA-Z_][a-zA-Z0-9_]*'
     t.type = reserved.get(t.value, 'NAME')
     return t
+
+def t_newline(t):
+    r'\n+'
+    t.lexer.lineno += len(t.value)
 
 def t_error(t): 
 	print("Illegal character '%s'" % t.value[0])
@@ -76,7 +80,7 @@ def p_list_stat(p):
 def p_statement(p):
     '''
     statement : declaration
-            | assignment
+            | list_assignments
     '''
     pass
 
@@ -109,7 +113,6 @@ def p_declr_entity(p):
     '''
     declr_entity : variable
         | pointer
-        | assignment
     '''
     pass
 
@@ -135,6 +138,13 @@ def p_assigned_value(p):
     '''
     pass
 
+def p_list_assignments(p):
+    '''
+    list_assignments : assignment
+                    | list_assignments COMMA assignment
+    '''
+    pass
+
 def p_assignment(p):
     '''
     assignment : declr_entity ASSIGN assigned
@@ -156,7 +166,7 @@ def p_assignment(p):
 
 def p_error(p):
 	if p:
-		print("syntax error at {0}".format(p.value))
+		print("syntax error at %s on line no %d" % (p.value, p.lineno))
 	else:
 		print("syntax error at EOF")		
 
