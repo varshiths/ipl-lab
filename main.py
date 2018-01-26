@@ -81,7 +81,7 @@ def p_list_stat(p):
 def p_statement(p):
     '''
     statement : declaration
-            | list_assignments1
+            | list_assignments
             | assignment
     '''
     pass
@@ -111,20 +111,6 @@ def p_variable(p):
     '''
     pass
 
-def p_assigned_entity(p):
-	'''
-	assigned_entity : pointer
-					
-	'''
-	config.num_assign += 1
-	pass
-
-def p_assigned1_entity(p):
-	'''
-	assigned1_entity : variable
-	'''
-	pass
-
 def p_declr_entity_var(p):
     '''
     declr_entity : variable
@@ -152,34 +138,50 @@ def p_declaration(p):
     '''
     pass
 
-def p_assigned_value(p):
+def p_list_assignments(p):
     '''
-    assigned_value : variable
-                    | pointer
-                    | NUMBER
+    list_assignments : assignment
+                    | list_assignments COMMA assignment
     '''
     pass
 
 def p_assignment(p):
 	'''
-	assignment :  assigned_entity ASSIGN assigned
-	assigned : assignment
-            	| assigned_value
+	assignment : assignment1
+				| assignment2
 	'''
-
-def p_list_assignments1(p):
-    '''
-    list_assignments1 : assignment1
-                    | list_assignments1 COMMA assignment1
-    '''
-    pass
+	pass
 
 def p_assignment1(p):
+	'''
+	assignment1 :  assigned1_entity ASSIGN assigned
+	assigned : assignment1
+            	| assigned1_value
+	'''
+	pass
+
+def p_assignment2(p):
     '''
-    assignment1 : assigned1_entity ASSIGN reference
+    assignment2 : variable ASSIGN reference
     '''
     config.num_assign += 1
     pass
+
+def p_assigned1_entity(p):
+	'''
+	assigned1_entity : pointer
+	'''
+	config.num_assign += 1
+	pass
+
+def p_assigned_value(p):
+    '''
+    assigned1_value : variable
+                    | pointer
+                    | NUMBER
+    '''
+    pass
+
 
 # def p_expression_name(p):
 #         '''
