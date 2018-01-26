@@ -3,6 +3,7 @@
 import sys
 import ply.lex as lex
 import ply.yacc as yacc
+import config
 
 DBG = False
 
@@ -80,7 +81,8 @@ def p_list_stat(p):
 def p_statement(p):
     '''
     statement : declaration
-            | list_assignments
+            | list_assignments1
+            | assignment
     '''
     pass
 
@@ -109,11 +111,32 @@ def p_variable(p):
     '''
     pass
 
-def p_declr_entity(p):
+def p_assigned_entity(p):
+	'''
+	assigned_entity : pointer
+					
+	'''
+	config.num_assign += 1
+	pass
+
+def p_assigned1_entity(p):
+	'''
+	assigned1_entity : variable
+	'''
+	pass
+
+def p_declr_entity_var(p):
     '''
     declr_entity : variable
-        | pointer
     '''
+    config.num_static_decl += 1
+    pass
+
+def p_declr_entity_pointer(p):
+    '''
+    declr_entity : pointer
+    '''
+    config.num_pointer_decl += 1
     pass
 
 def p_list_var(p):
@@ -133,24 +156,29 @@ def p_assigned_value(p):
     '''
     assigned_value : variable
                     | pointer
-                    | reference
                     | NUMBER
     '''
     pass
 
-def p_list_assignments(p):
+def p_assignment(p):
+	'''
+	assignment :  assigned_entity ASSIGN assigned
+	assigned : assignment
+            	| assigned_value
+	'''
+
+def p_list_assignments1(p):
     '''
-    list_assignments : assignment
-                    | list_assignments COMMA assignment
+    list_assignments1 : assignment1
+                    | list_assignments1 COMMA assignment1
     '''
     pass
 
-def p_assignment(p):
+def p_assignment1(p):
     '''
-    assignment : declr_entity ASSIGN assigned
-    assigned : assignment
-            | assigned_value
+    assignment1 : assigned1_entity ASSIGN reference
     '''
+    config.num_assign += 1
     pass
 
 # def p_expression_name(p):
@@ -186,3 +214,6 @@ if __name__ == "__main__":
 
     with open(sys.argv[1], 'r') as f:
         process(f.read())
+        print(config.num_static_decl)
+        print(config.num_pointer_decl)
+        print(config.num_assign)
