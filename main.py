@@ -3,7 +3,35 @@
 import sys
 import ply.lex as lex
 import ply.yacc as yacc
-import config
+# import config
+
+
+'''
+Allowed
+*p = *p
+*p = p
+*p = 5
+
+p = &p
+p = p
+
+Not Allowed
+*p = &p
+
+p = *p
+p = 5
+
+&p = *p
+&p = &p
+&p = p
+&p = 5
+
+5 = *p
+5 = &p
+5 = p
+5 = 5
+
+'''
 
 DBG = False
 
@@ -23,7 +51,8 @@ reserved = {
 }
 tokens += list(reserved.values())
 
-t_ignore = "( \t)|(\\\\.*)"
+# t_ignore = "( \t)|(//.*)"
+t_ignore = " \t"
 
 t_ASSIGN = r'='
 t_COMMA = r','
@@ -50,8 +79,8 @@ def t_newline(t):
     t.lexer.lineno += len(t.value)
 
 def t_error(t): 
-	print("Illegal character '%s'" % t.value[0])
-	t.lexer.skip(1)
+    print("Illegal character '%s'" % t.value[0])
+    t.lexer.skip(1)
 
 # Parsing rules
 precedence = (
@@ -63,19 +92,27 @@ def p_main(p):
     '''
     main : VOID MAIN LPAREN RPAREN LBRACE body RBRACE
     '''
+    p[0] = p[6]
+    return p[0]
     pass
 
 def p_body(p):
-	'''
+    '''
     body : list_stat
     '''
-	pass
+    p[0] = p[1]
+    pass
 
 def p_list_stat(p):
     '''
     list_stat : 
     list_stat : statement SEMICOLON list_stat 
     '''
+
+    if len(p) == 1:
+        p[0] = [0,0,0]
+    else:
+        p[0] = [ x+y for x,y in zip(p[1], p[3]) ]
     pass
 
 def p_statement(p):
@@ -84,6 +121,7 @@ def p_statement(p):
             | list_assignments
     '''
             # | assignment
+    p[0] = p[1]
     pass
 
 def p_type(p):
@@ -95,7 +133,8 @@ def p_type(p):
 
 def p_pointer(p):
     '''
-    pointer : STAR NAME | STAR pointer
+    pointer : STAR NAME
+            | STAR pointer
     '''
     pass
 
@@ -115,14 +154,16 @@ def p_declr_entity_var(p):
     '''
     declr_entity : variable
     '''
-    config.num_static_decl += 1
+    # config.num_static_decl += 1
+    p[0] = [1,0,0]
     pass
 
 def p_declr_entity_pointer(p):
     '''
     declr_entity : pointer
     '''
-    config.num_pointer_decl += 1
+    # config.num_pointer_decl += 1
+    p[0] = [0,1,0]
     pass
 
 def p_list_var(p):
@@ -130,12 +171,17 @@ def p_list_var(p):
     list_var : declr_entity
             | list_var COMMA declr_entity
     '''
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = [ x+y for x,y in zip(p[1], p[3]) ]
     pass
 
 def p_declaration(p):
     '''
     declaration : type list_var
     '''
+    p[0] = p[2]
     pass
 
 def p_list_assignments(p):
@@ -143,26 +189,31 @@ def p_list_assignments(p):
     list_assignments : assignment
                     | list_assignments COMMA assignment
     '''
+    if len(p) == 2:
+        p[0] = p[1]
+    else:
+        p[0] = [ x+y for x,y in zip(p[1], p[3]) ]
     pass
 
 def p_assignment(p):
-	'''
-	assignment : assignment1
-				| assignment2
-	'''
-	pass
+    '''
+    assignment : assignment1
+                | assignment2
+    '''
+    p[0] = [0,0,1]
+    pass
 
 def p_assignment1(p):
-	'''
-	assignment1 :  assigned1_entity ASSIGN assigned1_value
-	'''
-	pass
+    '''
+    assignment1 :  assigned1_entity ASSIGN assigned1_value
+    '''
+    pass
 
 def p_assigned1_entity(p):
     '''
     assigned1_entity : pointer
     '''
-    config.num_assign += 1
+    # config.num_assign += 1
     pass
 
 def p_assigned1_value(p):
@@ -177,7 +228,7 @@ def p_assignment2(p):
     '''
     assignment2 : variable ASSIGN assigned2_value
     '''
-    config.num_assign += 1
+    # config.num_assign += 1
     pass
 
 def p_assigned2_value(p):
@@ -200,28 +251,32 @@ def p_assigned2_value(p):
 
 def p_error(p):
     if p:
-		print("syntax error at %s on line no %d" % (p.value, p.lineno))
-	else:
-		print("syntax error at EOF")		
+        print("syntax error at %s on line no %d" % (p.value, p.lineno))
+    else:
+        print("syntax error at EOF")        
 
 def init():
-	lex.lex(debug=DBG)
-	yacc.yacc(debug=DBG)
+    lex.lex(debug=DBG)
+    yacc.yacc(debug=DBG)
 
 def process(data):
-	yacc.parse(data)
+    a = yacc.parse(data)
+    
+    for x in a:
+        print(x)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Error: Incorrect number of arguments")
         print("Usage: main.py program")
         sys.exit()
-        
+
     init()
 
     with open(sys.argv[1], 'r') as f:
         process(f.read())
 
-    print(config.num_static_decl)
-    print(config.num_pointer_decl)
-    print(config.num_assign)
+
+    # print(config.num_static_decl)
+    # print(config.num_pointer_decl)
+    # print(config.num_assign)
