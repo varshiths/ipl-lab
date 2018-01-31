@@ -133,14 +133,28 @@ def p_type(p):
 
 def p_pointer(p):
     '''
-    pointer : STAR NAME
-            | STAR pointer
+    pointer : STAR combine
+    '''
+    pass
+
+def p_pointer_d(p):
+    '''
+    pointer_d : STAR NAME
+                | STAR pointer_d
+    '''
+    pass
+
+def p_combination(p):
+    '''
+    combine : NAME
+            | STAR combine
+            | AMP combine
     '''
     pass
 
 def p_reference(p):
     '''
-    reference : AMP NAME
+    reference : AMP combine
     '''
     pass
 
@@ -160,7 +174,7 @@ def p_declr_entity_var(p):
 
 def p_declr_entity_pointer(p):
     '''
-    declr_entity : pointer
+    declr_entity : pointer_d
     '''
     # config.num_pointer_decl += 1
     p[0] = [0,1,0]
@@ -261,9 +275,11 @@ def init():
 
 def process(data):
     a = yacc.parse(data)
-    
-    for x in a:
-        print(x)
+    try:
+        for x in a:
+            print(x)
+    except Exception as e:
+        pass
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
