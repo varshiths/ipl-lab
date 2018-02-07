@@ -3,35 +3,6 @@
 import sys
 import ply.lex as lex
 import ply.yacc as yacc
-# import config
-
-
-'''
-Allowed
-*p = *p
-*p = p
-*p = 5
-
-p = &p
-p = p
-
-Not Allowed
-*p = &p
-
-p = *p
-p = 5
-
-&p = *p
-&p = &p
-&p = p
-&p = 5
-
-5 = *p
-5 = &p
-5 = p
-5 = 5
-
-'''
 
 DBG = False
 
@@ -168,7 +139,6 @@ def p_declr_entity_var(p):
     '''
     declr_entity : variable
     '''
-    # config.num_static_decl += 1
     p[0] = [1,0,0]
     pass
 
@@ -176,7 +146,6 @@ def p_declr_entity_pointer(p):
     '''
     declr_entity : pointer_d
     '''
-    # config.num_pointer_decl += 1
     p[0] = [0,1,0]
     pass
 
@@ -227,7 +196,6 @@ def p_assigned1_entity(p):
     '''
     assigned1_entity : pointer
     '''
-    # config.num_assign += 1
     pass
 
 def p_assigned1_value(p):
@@ -242,7 +210,6 @@ def p_assignment2(p):
     '''
     assignment2 : variable ASSIGN assigned2_value
     '''
-    # config.num_assign += 1
     pass
 
 def p_assigned2_value(p):
@@ -292,7 +259,3 @@ if __name__ == "__main__":
     with open(sys.argv[1], 'r') as f:
         process(f.read())
 
-
-    # print(config.num_static_decl)
-    # print(config.num_pointer_decl)
-    # print(config.num_assign)
