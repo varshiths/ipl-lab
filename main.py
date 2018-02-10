@@ -88,7 +88,7 @@ def t_error(t):
 precedence = (
     ('right', 'ASSIGN'),
     ('left', 'PLUS', 'MINUS'),
-    ('left', 'STAR', 'DIVIDE'),
+    ('left', 'STAR', 'DIV'),
     ('right', 'UMINUS', 'REF', 'AMP'),
 )
 
@@ -224,10 +224,9 @@ def p_assignment2(p):
 
 def p_assigned2_value(p):
     '''
-    assigned2_value : variable
-                    | reference
+    assigned2_value : expression2
     '''
-    p[0] = ASTNode("ASGN", [p[1], p[3]])
+    p[0] = p[1]
     pass
 
 def p_assignment1(p):
@@ -285,6 +284,39 @@ def p_binary_expr(p):
 
     pass
 
+def p_expression2(p):
+    '''
+    expression2 : reference
+                | pointer
+                | variable
+                | binary_expr2
+    '''
+    p[0] = p[1]
+    pass
+
+def p_binary_expr2(p):
+    '''
+    binary_expr2 : expression PLUS expression
+                | expression MINUS expression
+                | expression STAR expression
+                | expression DIV expression
+                | MINUS expression2 %prec UMINUS
+    '''
+
+    if len(p) == 3:
+        p[0] = ASTNode("UMINUS", [p[2]])
+    else: # check that both p[1] and p[2] can't be numbers
+        if p[2] == "+":
+            p[0] = ASTNode("PLUS", [p[1], p[3]])
+        elif p[2] == "-":
+            p[0] = ASTNode("MINUS", [p[1], p[3]])
+        elif p[2] == "*":
+            p[0] = ASTNode("MUL", [p[1], p[3]])
+        elif p[2] == "/":
+            p[0] = ASTNode("DIV", [p[1], p[3]])
+
+    pass
+
 def p_error(p):
     if p:
         print("syntax error at %s on line no %d" % (p.value, p.lineno))
@@ -300,6 +332,7 @@ def process(data):
     try:
         for node in a:
             node.print_tree()
+            print()
     except Exception as e:
         print(e)
 
