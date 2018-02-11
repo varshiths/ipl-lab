@@ -3,3 +3,5 @@ __pycache__/*
 *.c
 parser.out
 parsetab.py
+*.out
+test

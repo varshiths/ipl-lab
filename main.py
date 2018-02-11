@@ -4,6 +4,9 @@ import sys
 import ply.lex as lex
 import ply.yacc as yacc
 
+LDBG = False
+YDBG = False
+
 def tabs(n):
     return "\t"*n
 
@@ -28,9 +31,6 @@ class ASTNode:
                     if i != len(self.children)-1:
                         print(tabs(ntabs+1), ",", sep='')
                 print(tabs(ntabs), ")", sep='')
-
-
-DBG = False
 
 tokens = [
         'NAME', 'NUMBER',
@@ -231,16 +231,9 @@ def p_assigned2_value(p):
 
 def p_assignment1(p):
     '''
-    assignment1 :  assigned1_entity ASSIGN assigned1_value
+    assignment1 : pointer ASSIGN assigned1_value
     '''
     p[0] = ASTNode("ASGN", [p[1], p[3]])
-    pass
-
-def p_assigned1_entity(p):
-    '''
-    assigned1_entity : pointer
-    '''
-    p[0] = p[1]
     pass
 
 def p_assigned1_value(p):
@@ -252,25 +245,31 @@ def p_assigned1_value(p):
 
 def p_expression(p):
     '''
-    expression : reference
-                | pointer
-                | variable
-                | num
-                | binary_expr
+    expression : anfp
+                | num_expr
     '''
-    p[0] = p[1]
+    if len(p) == 4:
+        p[0] = p[2]
+    else:
+        p[0] = p[1]
     pass
 
-def p_binary_expr(p):
+def p_num_expr(p):
     '''
-    binary_expr : expression PLUS expression
-                | expression MINUS expression
-                | expression STAR expression
-                | expression DIV expression
-                | MINUS expression %prec UMINUS
+    num_expr : num
+            | rec_num
+            | LPAREN rec_num RPAREN
+
+    rec_num : num_expr PLUS num_expr
+            | num_expr MINUS num_expr
+            | num_expr STAR num_expr
+            | num_expr DIV num_expr
+            | MINUS num_expr %prec UMINUS
     '''
 
-    if len(p) == 3:
+    if len(p) == 2:
+        p[0] = p[1]
+    elif len(p) == 3:
         p[0] = ASTNode("UMINUS", [p[2]])
     else:
         if p[2] == "+":
@@ -281,26 +280,49 @@ def p_binary_expr(p):
             p[0] = ASTNode("MUL", [p[1], p[3]])
         elif p[2] == "/":
             p[0] = ASTNode("DIV", [p[1], p[3]])
-
+        # parenthesis handle
+        elif p[1] == "(":
+            p[0] = p[2]
     pass
 
 def p_expression2(p):
     '''
-    expression2 : reference
-                | pointer
-                | variable
-                | binary_expr2
+    expression2 : anfp
+
     '''
     p[0] = p[1]
     pass
 
-def p_binary_expr2(p):
+def p_anfp(p):
     '''
-    binary_expr2 : expression PLUS expression
-                | expression MINUS expression
-                | expression STAR expression
-                | expression DIV expression
-                | MINUS expression2 %prec UMINUS
+    anfp : reference
+        | pointer
+        | variable
+        | rec_anfp
+        | LPAREN anfp RPAREN
+    '''
+
+    if len(p) == 4:
+        p[0] = p[2]
+    else:
+        p[0] = p[1]
+    pass
+
+def p_rec_anfp(p):
+    '''
+    rec_anfp : MINUS anfp %prec UMINUS
+        | anfp PLUS anfp
+        | anfp MINUS anfp
+        | anfp STAR anfp
+        | anfp DIV anfp
+        | anfp PLUS num_expr
+        | num_expr PLUS anfp
+        | anfp MINUS num_expr
+        | num_expr MINUS anfp
+        | anfp STAR num_expr
+        | num_expr STAR anfp
+        | anfp DIV num_expr
+        | num_expr DIV anfp
     '''
 
     if len(p) == 3:
@@ -314,27 +336,26 @@ def p_binary_expr2(p):
             p[0] = ASTNode("MUL", [p[1], p[3]])
         elif p[2] == "/":
             p[0] = ASTNode("DIV", [p[1], p[3]])
-
     pass
 
 def p_error(p):
     if p:
-        print("syntax error at %s on line no %d" % (p.value, p.lineno))
+        raise Exception("syntax error at '%s' on line no '%d'" % (p.value, p.lineno))
     else:
-        print("syntax error at EOF")        
+        raise Exception("syntax error at EOF")
 
 def init():
-    lex.lex(debug=DBG)
-    yacc.yacc(debug=DBG)
+    lex.lex(debug=LDBG)
+    yacc.yacc(debug=YDBG)
 
 def process(data):
-    a = yacc.parse(data)
     try:
+        a = yacc.parse(data)
         for node in a:
             node.print_tree()
             print()
     except Exception as e:
-        print(e)
+        print(e, file=sys.stderr)
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
