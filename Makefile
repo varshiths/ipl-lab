@@ -1,9 +1,9 @@
 clean:
 
-	rm parsetab.py
-	rm parser.out
-	rm -rf __pycache__/
-	rm *.out
+	rm -f parsetab.py
+	rm -f parser.out
+	rm -f -r __pycache__/
+	rm -f *.out
 
 runtest:
 
