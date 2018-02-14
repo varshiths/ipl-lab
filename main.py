@@ -258,7 +258,7 @@ def p_num_expr(p):
     '''
     num_expr : num
             | rec_num
-            | LPAREN rec_num RPAREN
+            | LPAREN num_expr RPAREN
 
     rec_num : num_expr PLUS num_expr
             | num_expr MINUS num_expr
