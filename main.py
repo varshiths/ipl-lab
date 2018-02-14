@@ -3,6 +3,8 @@
 import sys
 import ply.lex as lex
 import ply.yacc as yacc
+from contextlib import redirect_stdout
+import os
 
 LDBG = False
 YDBG = False
@@ -364,7 +366,11 @@ if __name__ == "__main__":
         sys.exit()
 
     init()
+    input_file = sys.argv[1]
+    input_file = os.path.basename(input_file)
+    with open('Parser_ast_%s.txt' % input_file, 'w') as f:
+    	with redirect_stdout(f):
 
-    with open(sys.argv[1], 'r') as f:
-        process(f.read())
+		    with open(sys.argv[1], 'r') as f:
+		        process(f.read())
 
