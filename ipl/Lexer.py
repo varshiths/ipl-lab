@@ -9,19 +9,24 @@ class Lexer:
 	        'LPAREN', 'RPAREN',
 	        'LBRACE', 'RBRACE',
 	        'SEMICOLON', 'STAR', 'AMP',
-	        'PLUS', 'MINUS', 'DIV'
+	        'PLUS', 'MINUS', 'DIV', 'LESS', 'GRT', 'LESS_EQ', 'GRT_EQ', 'EQ', 'NEQ', 'AND',
+	        'OR', 'B_OR', 'NOT'
 	]
 
 	reserved = {
 	    'int' : 'INT',
 	    'void' : 'VOID',
 	    'main' : 'MAIN',
+	    'if'   : 'IF',
+	    #'while' : 'WHILE',
+	    'else' : 'ELSE'
 	}
 	tokens += list(reserved.values())
 
 	# t_ignore = "( \t)|(//.*)"
 	t_ignore = " \t"
 
+	t_EQ = r'=='
 	t_ASSIGN = r'='
 	t_COMMA = r','
 
@@ -33,6 +38,7 @@ class Lexer:
 
 	t_SEMICOLON = r';'
 	t_STAR = r'\*'
+	t_AND = r'&&'
 	t_AMP = r'&'
 
 	t_PLUS = r'\+'
@@ -40,6 +46,18 @@ class Lexer:
 	t_DIV = r'/'
 
 	t_NUMBER = r'\d+'
+
+	t_LESS_EQ = r'<='
+	t_LESS = r'<'
+	t_GRT_EQ = r'>='
+	t_GRT = r'>'
+	t_NEQ = r'!='
+	t_NOT = r'!'
+	t_OR = r'\|\|'
+	t_B_OR = r'\|'
+	
+
+
 
 	def t_NAME(self, t):
 	    r'[a-zA-Z_][a-zA-Z0-9_]*'
