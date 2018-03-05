@@ -42,19 +42,20 @@ class Parser:
         p[0] = p[1]
         pass
 
-    def p_single_stat(self, p):
-        '''
-        single_stat : statement SEMICOLON
-                | if_stmt
+    # def p_single_stat(self, p):
+    #     '''
+    #     single_stat : statement SEMICOLON
+    #             | if_stmt
 
-        '''
-        p[0] = p[1]
+    #     '''
+    #     p[0] = p[1]
 
     def p_list_stat(self, p):
         '''
         list_stat :
-        list_stat : single_stat list_stat 
+        list_stat : stmt list_stat 
         '''
+        # list_stat : statement list_stat 
         p[0] = []
         if len(p) != 1:
             p[0].append(p[1])
@@ -63,8 +64,8 @@ class Parser:
 
     def p_statement(self, p):
         '''
-        statement : declaration
-                | assignment
+        other : declaration SEMICOLON
+                | assignment SEMICOLON
         '''
                 # | if_stmt
                 # | while_stmt
@@ -74,42 +75,55 @@ class Parser:
 
     def p_if_stmt(self, p):
         '''
-        if_stmt : IF LPAREN expression RPAREN single_stat else_stmt
-                | IF LPAREN expression RPAREN SEMICOLON else_stmt
-                | IF LPAREN expression RPAREN LBRACE list_stat RBRACE else_stmt
+        stmt : matched_stmt | unmatched_stmt
 
-        '''
-        if len(p) == 7:
-            if p[5] == ";":
-                p[5] = []
+        matched_stmt : IF LPAREN expression RPAREN matched_stmt ELSE matched_stmt
+                    | IF LPAREN expression RPAREN SEMICOLON ELSE matched_stmt
+                    | IF LPAREN expression RPAREN LBRACE list_stat RBRACE ELSE matched_stmt
+                    | statement
 
-            if p[6] is not None:
-                p[0] = ASTNode("IF", [p[3], p[5], p[6]])
-            else:
-                p[0] = ASTNode("IF", [p[3], p[5]])
-        else:
-            if p[8] is not None:
-                p[0] = ASTNode("IF", [p[3], p[6], p[8]])
-            else:
-                p[0] = ASTNode("IF", [p[3], p[6]])
+        unmatched_stmt : IF LPAREN expression RPAREN matched_stmt
+                    | IF LPAREN expression RPAREN unmatched_stmt
+                    | IF LPAREN expression RPAREN SEMICOLON
+                    | IF LPAREN expression RPAREN LBRACE list_stat RBRACE
 
-    def p_else_stmt(self, p):
-        '''
-        else_stmt :
-                | ELSE single_stat
+        else_stmt : ELSE matched_stmt
+                | ELSE unmatched_stmt
                 | ELSE SEMICOLON
                 | ELSE LBRACE list_stat RBRACE
 
         '''
-        if len(p) == 1:
-            p[0] = None
-        elif len(p) == 3:
-            if p[2] == ";":
-                p[0] = ASTNode("ELSE", [])
-            else:    
-                p[0] = ASTNode("ELSE", [p[2]])
-        else:
-            p[0] = ASTNode("ELSE", [p[3]])
+        # if len(p) == 7:
+        #     if p[5] == ";":
+        #         p[5] = []
+
+        #     if p[6] is not None:
+        #         p[0] = ASTNode("IF", [p[3], p[5], p[6]])
+        #     else:
+        #         p[0] = ASTNode("IF", [p[3], p[5]])
+        # else:
+        #     if p[8] is not None:
+        #         p[0] = ASTNode("IF", [p[3], p[6], p[8]])
+        #     else:
+        #         p[0] = ASTNode("IF", [p[3], p[6]])
+
+    # def p_else_stmt(self, p):
+    #     '''
+    #     else_stmt :
+    #             | ELSE single_stat
+    #             | ELSE SEMICOLON
+    #             | ELSE LBRACE list_stat RBRACE
+
+    #     '''
+    #     if len(p) == 1:
+    #         p[0] = None
+    #     elif len(p) == 3:
+    #         if p[2] == ";":
+    #             p[0] = ASTNode("ELSE", [])
+    #         else:    
+    #             p[0] = ASTNode("ELSE", [p[2]])
+    #     else:
+    #         p[0] = ASTNode("ELSE", [p[3]])
 
 
     def p_type(self, p):

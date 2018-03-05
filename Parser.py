@@ -5,7 +5,7 @@ import os
 
 from contextlib import redirect_stdout
 
-LDBG = True
+LDBG = False
 YDBG = True
 
 if __name__ == "__main__":
