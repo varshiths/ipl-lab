@@ -18,7 +18,7 @@ class Lexer:
 	    'void' : 'VOID',
 	    'main' : 'MAIN',
 	    'if'   : 'IF',
-	    #'while' : 'WHILE',
+	    'while' : 'WHILE',
 	    'else' : 'ELSE'
 	}
 	tokens += list(reserved.values())

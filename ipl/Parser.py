@@ -37,28 +37,29 @@ class Parser:
 
     def p_body(self, p):
         '''
-        body : list_stat
+        body : 
+            | list_stat
         '''
         p[0] = p[1]
         pass
 
-    def p_single_stat(self, p):
-        '''
-        single_stat : statement SEMICOLON
-                | if_stmt
-
-        '''
-        p[0] = p[1]
-
     def p_list_stat(self, p):
         '''
-        list_stat :
-        list_stat : single_stat list_stat 
+        list_stat : list_non_if_else
+                    | if_stmt list_stat
+                    | if_else_stmt list_stat
         '''
         p[0] = []
         if len(p) != 1:
             p[0].append(p[1])
             p[0].extend(p[2])
+        pass
+
+    def p_list_non_if_else(self, p):
+        '''
+        list_non_if_else : single_stat
+                        | single_stat list_non_if_else
+        '''
         pass
 
     def p_statement(self, p):
@@ -72,14 +73,32 @@ class Parser:
         p[0] = p[1]
         pass
 
+    def p_non_if_else_statement_block(self, p):
+        '''
+        single_stat : statement SEMICOLON
+                    | while_stmt
+
+        non_ie_stmt_block : SEMICOLON
+                    | single_stat
+                    | LBRACE RBRACE
+                    | LBRACE SEMICOLON RBRACE
+                    | LBRACE  list_non_if_else RBRACE
+        '''
+
+    def p_while_stmt(self, p):
+        '''
+        while_stmt : WHILE LPAREN expression RPAREN non_ie_stmt_block
+        '''
+        pass
+
     def p_if_stmt(self, p):
         '''
-        if_stmt : IF LPAREN expression RPAREN single_stat else_stmt
-                | IF LPAREN expression RPAREN SEMICOLON else_stmt
-                | IF LPAREN expression RPAREN LBRACE list_stat RBRACE else_stmt
+        if_stmt : IF LPAREN expression RPAREN non_ie_stmt_block
+                    | IF LPAREN expression RPAREN if_else_stmt ELSE if_stmt
 
         '''
-        if len(p) == 7:
+        pass
+        '''if len(p) == 7:
             if p[5] == ";":
                 p[5] = []
 
@@ -91,25 +110,14 @@ class Parser:
             if p[8] is not None:
                 p[0] = ASTNode("IF", [p[3], p[6], p[8]])
             else:
-                p[0] = ASTNode("IF", [p[3], p[6]])
+                p[0] = ASTNode("IF", [p[3], p[6]])'''
 
-    def p_else_stmt(self, p):
+    def p_if_else_stmt(self, p):
         '''
-        else_stmt :
-                | ELSE single_stat
-                | ELSE SEMICOLON
-                | ELSE LBRACE list_stat RBRACE
-
+        if_else_stmt : non_ie_stmt_block
+                    | IF LPAREN expression RPAREN if_else_stmt ELSE if_else_stmt
         '''
-        if len(p) == 1:
-            p[0] = None
-        elif len(p) == 3:
-            if p[2] == ";":
-                p[0] = ASTNode("ELSE", [])
-            else:    
-                p[0] = ASTNode("ELSE", [p[2]])
-        else:
-            p[0] = ASTNode("ELSE", [p[3]])
+        pass
 
 
     def p_type(self, p):
