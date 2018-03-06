@@ -25,6 +25,8 @@ class Parser:
         ('left', 'STAR', 'DIV'),
         ('right', 'UMINUS', 'REF', 'AMP'),
         ('right', 'NOT'),
+        ('left', 'ELSE'),
+        ('left', 'RPAREN'),
     )
 
     def p_main(self, p):
@@ -37,17 +39,15 @@ class Parser:
 
     def p_body(self, p):
         '''
-        body : 
-            | list_stat
+        body : list_stat
         '''
         p[0] = p[1]
         pass
 
     def p_list_stat(self, p):
         '''
-        list_stat : list_non_if_else
-                    | if_stmt list_stat
-                    | if_else_stmt list_stat
+        list_stat :
+        list_stat : statement list_stat 
         '''
         p[0] = []
         if len(p) != 1:
@@ -55,69 +55,56 @@ class Parser:
             p[0].extend(p[2])
         pass
 
-    def p_list_non_if_else(self, p):
-        '''
-        list_non_if_else : single_stat
-                        | single_stat list_non_if_else
-        '''
-        pass
-
     def p_statement(self, p):
         '''
-        statement : declaration
-                | assignment
+        statement : matched_stmt
+                | unmatched_stmt
+
+        other : declaration SEMICOLON
+                | assignment SEMICOLON
+                | while
         '''
-                # | if_stmt
-                # | while_stmt
-                # | list_assignments
         p[0] = p[1]
-        pass
-
-    def p_non_if_else_statement_block(self, p):
-        '''
-        single_stat : statement SEMICOLON
-                    | while_stmt
-
-        non_ie_stmt_block : SEMICOLON
-                    | single_stat
-                    | LBRACE RBRACE
-                    | LBRACE SEMICOLON RBRACE
-                    | LBRACE  list_non_if_else RBRACE
-        '''
-
-    def p_while_stmt(self, p):
-        '''
-        while_stmt : WHILE LPAREN expression RPAREN non_ie_stmt_block
-        '''
         pass
 
     def p_if_stmt(self, p):
         '''
-        if_stmt : IF LPAREN expression RPAREN non_ie_stmt_block
-                    | IF LPAREN expression RPAREN if_else_stmt ELSE if_stmt
+        temp1 : matched_stmt
+                | SEMICOLON
+                | LBRACE list_stat RBRACE
 
+        matched_stmt : IF LPAREN expression RPAREN temp1 ELSE temp1
+                    | other
+
+        unmatched_stmt : IF LPAREN expression RPAREN temp1
+                    | IF LPAREN expression RPAREN unmatched_stmt
+                    | IF LPAREN expression RPAREN temp1 ELSE unmatched_stmt
         '''
-        pass
-        '''if len(p) == 7:
-            if p[5] == ";":
-                p[5] = []
-
-            if p[6] is not None:
-                p[0] = ASTNode("IF", [p[3], p[5], p[6]])
+        if len(p) == 2:
+            if p[1] == ";":
+                p[0] = []
             else:
-                p[0] = ASTNode("IF", [p[3], p[5]])
+                p[0] = p[1]
+
+        elif len(p) == 4:
+            p[0] = p[2]
+
+        elif len(p) == 6:
+            p[0] = ASTNode("IF", [p[3], p[5], []])
+
+        elif len(p) == 8:
+            p[0] = ASTNode("IF", [p[3], p[5], p[7]])
+                        
+    def p_while(self, p):
+        '''
+        while : WHILE LPAREN expression RPAREN LBRACE list_stat RBRACE
+                | WHILE LPAREN expression RPAREN statement
+        '''
+
+        if len(p) == 6:
+            p[0] = ASTNode("WHILE", [p[3], p[5]])
         else:
-            if p[8] is not None:
-                p[0] = ASTNode("IF", [p[3], p[6], p[8]])
-            else:
-                p[0] = ASTNode("IF", [p[3], p[6]])'''
-
-    def p_if_else_stmt(self, p):
-        '''
-        if_else_stmt : non_ie_stmt_block
-                    | IF LPAREN expression RPAREN if_else_stmt ELSE if_else_stmt
-        '''
-        pass
+            p[0] = ASTNode("WHILE", [p[3], p[6]])
 
 
     def p_type(self, p):
@@ -315,7 +302,6 @@ class Parser:
                 p[0] = p[2]
         pass
 
-
     def p_expression2(self, p):
         '''
         expression2 : anfp
@@ -389,8 +375,7 @@ class Parser:
             | anfp GRT_EQ num_expr
             | anfp AMP num_expr %prec B_AND
             | anfp B_OR num_expr
-
-    '''
+        '''
 
         if len(p) == 3:
             if p[2] == '-':
@@ -440,7 +425,8 @@ class Parser:
         try:
             a = yacc.parse(data, lexer=self.lexer.lexer)
             for node in a:
-                node.print_tree()
+                if node is not None:
+                    node.print_tree()
                 print()
         except Exception as e:
             print(e, file=sys.stderr)
