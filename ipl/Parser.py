@@ -50,7 +50,8 @@ class Parser:
         '''
         p[0] = ASTNode("BLOCK", [])
         if len(p) != 1:
-            p[0].children.append(p[1])
+            if p[1] is not None:
+                p[0].children.append(p[1])
             p[0].children.extend(p[2].children)
         pass
 
@@ -88,11 +89,23 @@ class Parser:
         elif len(p) == 4:
             p[0] = p[2]
 
-        elif len(p) == 6:
-            p[0] = ASTNode("IF", [p[3], p[5], ASTNode("BLOCK", [])])
+        else:
+            if_body_node = ASTNode("BLOCK", [])
+            else_body_node = ASTNode("BLOCK", [])
 
-        elif len(p) == 8:
-            p[0] = ASTNode("IF", [p[3], p[5], p[7]])
+            if len(p) >= 6:
+                if p[5].label == "BLOCK":
+                    if_body_node = p[5]
+                else:
+                    if_body_node.children.append(p[5])
+
+            if len(p) == 8:
+                if p[7].label == "BLOCK":
+                    else_body_node = p[7]
+                else:
+                    else_body_node.children.append(p[7])
+
+            p[0] = ASTNode("IF", [p[3], if_body_node, else_body_node])
                         
     def p_while(self, p):
         '''
@@ -105,7 +118,7 @@ class Parser:
             if p[5] == ";":
                 p[0] = ASTNode("WHILE", [p[3], ASTNode("BLOCK", [])])
             else:
-                p[0] = ASTNode("WHILE", [p[3], p[5]])
+                p[0] = ASTNode("WHILE", [p[3], ASTNode("BLOCK", [p[5]])])
         else:
             p[0] = ASTNode("WHILE", [p[3], p[6]])
 
