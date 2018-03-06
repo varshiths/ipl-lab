@@ -83,7 +83,8 @@ class ASTNode:
                 false_blk = len(ASTNode.blocks.keys())
                 b = ASTNode.control_flow_graph_node(node.children[2])
 
-                ASTNode.blocks[curr_block] = ["if(" + cond + ")"]
+                ASTNode.blocks[curr_block] = ["if"]
+                ASTNode.blocks[curr_block].append("if(" + cond + ")")
 
                 end_list = []
                 if len(a) == 0:
@@ -107,7 +108,8 @@ class ASTNode:
                 true_blk = curr_block + 1
                 a = ASTNode.control_flow_graph_node(node.children[1])
 
-                ASTNode.blocks[curr_block] = ["if(" + cond + ")"]
+                ASTNode.blocks[curr_block] = ["if"]
+                ASTNode.blocks[curr_block].append("if(" + cond + ")")
 
                 if len(a) != 0:
                     ASTNode.blocks[true_blk].append(curr_block)
@@ -131,9 +133,9 @@ class ASTNode:
 
         for key, value in sorted(flow.items(), key=lambda x: x[0]):
             print("<bb %d>" % key)
-            if value[0][0:2] == "if":
-                print("%s goto %s" % (value[0], get_block_str(value[1])))
-                print("else goto %s" % (get_block_str(value[2])))
+            if value[0] == "if":
+                print("%s goto %s" % (value[1], get_block_str(value[2])))
+                print("else goto %s" % (get_block_str(value[3])))
 
             else:
                 for statement in value[:-1]:
