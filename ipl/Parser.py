@@ -25,8 +25,8 @@ class Parser:
         ('left', 'STAR', 'DIV'),
         ('right', 'UMINUS', 'REF', 'AMP'),
         ('right', 'NOT'),
-        ('left', 'ELSE'),
         ('left', 'RPAREN'),
+        ('left', 'ELSE'),
     )
 
     def p_main(self, p):

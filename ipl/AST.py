@@ -18,7 +18,8 @@ class ASTNode:
             print(tabs(ntabs), "(", sep='')
             if len(self.children) != 0:
                 for i, child in enumerate(self.children):
-                    child.print_tree(ntabs + 1)
+                    if child is not None:
+                        child.print_tree(ntabs + 1)
                     if i != len(self.children)-1:
                         print(tabs(ntabs+1), ",", sep='')
             print(tabs(ntabs), ")", sep='')
