@@ -3,7 +3,7 @@ import ply.yacc as yacc
 
 import sys
 
-from .AST import ASTNode
+from .AST import ASTNode, control_flow_graph
 
 class Parser:
 
@@ -444,5 +444,14 @@ class Parser:
                 if node is not None:
                     node.print_tree()
                     print()
+
+            for node in a.children:
+                if node is not None:
+                    node.print_tree()
+                    print(node.statement())
+                    print()
+
+            a.get_control_graph()
+
         except Exception as e:
             print(e, file=sys.stderr)
