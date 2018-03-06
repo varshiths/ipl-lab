@@ -14,11 +14,11 @@ class ASTNode:
             print(self.label, "(", self.children[0].label, ")", sep='')
         else:
             print(tabs(ntabs), self.label, sep='')
-
+            
+            print(tabs(ntabs), "(", sep='')
             if len(self.children) != 0:
-                print(tabs(ntabs), "(", sep='')
                 for i, child in enumerate(self.children):
                     child.print_tree(ntabs + 1)
                     if i != len(self.children)-1:
                         print(tabs(ntabs+1), ",", sep='')
-                print(tabs(ntabs), ")", sep='')
+            print(tabs(ntabs), ")", sep='')

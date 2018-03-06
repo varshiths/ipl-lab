@@ -34,7 +34,6 @@ class Parser:
         main : VOID MAIN LPAREN RPAREN LBRACE body RBRACE
         '''
         p[0] = p[6]
-        return p[0]
         pass
 
     def p_body(self, p):
@@ -49,10 +48,10 @@ class Parser:
         list_stat :
         list_stat : statement list_stat 
         '''
-        p[0] = []
+        p[0] = ASTNode("BLOCK", [])
         if len(p) != 1:
-            p[0].append(p[1])
-            p[0].extend(p[2])
+            p[0].children.append(p[1])
+            p[0].children.extend(p[2].children)
         pass
 
     def p_statement(self, p):
@@ -82,7 +81,7 @@ class Parser:
         '''
         if len(p) == 2:
             if p[1] == ";":
-                p[0] = []
+                p[0] = ASTNode("BLOCK", [])
             else:
                 p[0] = p[1]
 
@@ -90,7 +89,7 @@ class Parser:
             p[0] = p[2]
 
         elif len(p) == 6:
-            p[0] = ASTNode("IF", [p[3], p[5], []])
+            p[0] = ASTNode("IF", [p[3], p[5], ASTNode("BLOCK", [])])
 
         elif len(p) == 8:
             p[0] = ASTNode("IF", [p[3], p[5], p[7]])
@@ -99,10 +98,14 @@ class Parser:
         '''
         while : WHILE LPAREN expression RPAREN LBRACE list_stat RBRACE
                 | WHILE LPAREN expression RPAREN statement
+                | WHILE LPAREN expression RPAREN SEMICOLON
         '''
 
         if len(p) == 6:
-            p[0] = ASTNode("WHILE", [p[3], p[5]])
+            if p[5] == ";":
+                p[0] = ASTNode("WHILE", [p[3], ASTNode("BLOCK", [])])
+            else:
+                p[0] = ASTNode("WHILE", [p[3], p[5]])
         else:
             p[0] = ASTNode("WHILE", [p[3], p[6]])
 
@@ -424,9 +427,9 @@ class Parser:
     def process(self, data):
         try:
             a = yacc.parse(data, lexer=self.lexer.lexer)
-            for node in a:
+            for node in a.children:
                 if node is not None:
                     node.print_tree()
-                print()
+                    print()
         except Exception as e:
             print(e, file=sys.stderr)
