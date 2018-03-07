@@ -45,18 +45,54 @@ class ASTNode:
 
     def statement(self):
         if self.label == "VAR" or self.label == "CONST":
-            return self.children[0].label
+            return [self.children[0].label]
         elif self.label == "DEREF":
-            return "*" + self.children[0].statement()
+            return ["*" + self.children[0].statement()[0]]
         elif self.label == "ADDR":
-            return "&" + self.children[0].statement()
+            return ["&" + self.children[0].statement()[0]]
         elif self.label == "ASGN":
-            return (self.children[0]).statement() + "=" + (self.children[1]).statement()
-        elif self.label in binary_ops.keys():
-            return (self.children[0]).statement() + binary_ops[self.label] + (self.children[1]).statement()
-        elif self.label in unary_ops.keys():
-            return unary_ops[self.label] + (self.children[0]).statement()
 
+            a_list = self.children[0].statement()
+            b_list = self.children[1].statement()
+
+            ret_list = []
+            ret_list.extend(a_list[:-1])
+            ret_list.extend(b_list[:-1])
+            ret_list.append("%s %s %s" % (a_list[-1], "=", b_list[-1]))
+
+            return ret_list
+
+        elif self.label in binary_ops.keys():
+
+            a_list = self.children[0].statement()
+            b_list = self.children[1].statement()
+
+            curr_cond = len(ASTNode.conditions.keys())
+            ASTNode.conditions[curr_cond] = "t%d %s %s %s %s" % (curr_cond, "=", a_list[-1], binary_ops[self.label], b_list[-1])
+
+            ret_list = []
+            ret_list.extend(a_list[:-1])
+            ret_list.extend(b_list[:-1])
+            ret_list.append(ASTNode.conditions[curr_cond])
+
+            ret_list.append("t%d" % curr_cond)
+
+            return ret_list
+
+        elif self.label in unary_ops.keys():
+            
+            a_list = self.children[0].statement()
+
+            curr_cond = len(ASTNode.conditions.keys())
+            ASTNode.conditions[curr_cond] = "t%d %s %s %s" % (curr_cond, "=", unary_ops[self.label], a_list[-1])
+
+            ret_list = []
+            ret_list.extend(a_list[:-1])
+            ret_list.append(ASTNode.conditions[curr_cond])
+
+            ret_list.append("t%d" % curr_cond)
+
+            return ret_list
 
 
     def control_flow_graph_node(node):
@@ -71,7 +107,7 @@ class ASTNode:
                     for i, child in enumerate(node.children):
                         if child is not None:
                             if child.label != "IF" and child.label != "WHILE":
-                                ASTNode.blocks[curr_block].append(child.statement())
+                                ASTNode.blocks[curr_block].extend(child.statement())
                                 if i == len(node.children)-1:
                                     return [curr_block]
                             else:
@@ -96,18 +132,15 @@ class ASTNode:
                 curr_block = len(ASTNode.blocks.keys())
                 ASTNode.blocks[curr_block] = []
 
-                cond = node.children[0].statement()
+                cond_list = node.children[0].statement()
                 true_blk = curr_block + 1
                 a = ASTNode.control_flow_graph_node(node.children[1])
                 false_blk = len(ASTNode.blocks.keys())
                 b = ASTNode.control_flow_graph_node(node.children[2])
 
-                conditions_length = len(ASTNode.conditions.keys())
-                ASTNode.conditions[conditions_length] = cond
-
                 ASTNode.blocks[curr_block] = ["if"]
-                ASTNode.blocks[curr_block].append("t%d = %s" % (conditions_length, cond))
-                ASTNode.blocks[curr_block].append("if(t%d)" % (conditions_length))
+                ASTNode.blocks[curr_block].extend(cond_list[:-1])
+                ASTNode.blocks[curr_block].append("if(%s)" % (cond_list[-1]))
 
                 end_list = []
                 if len(a) == 0:
@@ -127,16 +160,14 @@ class ASTNode:
             elif node.label == "WHILE":
                 curr_block = len(ASTNode.blocks.keys())
                 ASTNode.blocks[curr_block] = []
-                cond = node.children[0].statement()
+
+                cond_list = node.children[0].statement()
                 true_blk = curr_block + 1
                 a = ASTNode.control_flow_graph_node(node.children[1])
 
-                conditions_length = len(ASTNode.conditions.keys())
-                ASTNode.conditions[conditions_length] = cond
-
                 ASTNode.blocks[curr_block] = ["if"]
-                ASTNode.blocks[curr_block].append("t%d = %s" % (conditions_length, cond))
-                ASTNode.blocks[curr_block].append("if(t%d)" % (conditions_length))
+                ASTNode.blocks[curr_block].extend(cond_list[:-1])
+                ASTNode.blocks[curr_block].append("if(%s)" % (cond_list[-1]))
 
                 if len(a) != 0:
                     ASTNode.blocks[true_blk].append(curr_block)
@@ -165,9 +196,11 @@ class ASTNode:
         for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
             print("<bb %d>" % key)
             if value[0] == "if":
-                print(value[1])
-                print("%s goto %s" % (value[2], get_block_str(value[3])))
-                print("else goto %s" % (get_block_str(value[4])))
+
+                for stat in value[1:-3]:
+                    print(stat)
+                print("%s goto %s" % (value[-3], get_block_str(value[-2])))
+                print("else goto %s" % (get_block_str(value[-1])))
 
             else:
                 for statement in value[:-1]:
