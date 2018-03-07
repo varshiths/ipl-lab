@@ -1,5 +1,14 @@
-binary_ops = {'PLUS':'+', 'MINUS':'-', 'UMINUS':'-', 'MUL':'*', 'DIV':'/', 'LESS':'<', 'GRT':'>', 'LESS_EQ':'<=', 'GRT_EQ':'>=', 'EQ':'==', 'NEQ':'!=', 'AND':'&&',
-            'OR':'||', 'B_AND':'&', 'B_OR':'|', 'NOT':'!'}
+binary_ops = {'PLUS':'+', 'MINUS':'-', 'MUL':'*', 'DIV':'/', 'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'==', 'NE':'!=', 'AND':'&&',
+            'OR':'||', 'B_AND':'&', 'B_OR':'|'}
+
+unary_ops = {'UMINUS':'-', 'NOT':'!'}
+rev_unary_ops = {}
+rev_binary_ops = {}
+for key, val in binary_ops.items():
+    rev_binary_ops[val] = key
+
+for key, val in unary_ops.items():
+    rev_unary_ops[val] = key
 
 def tabs(n):
     return "\t"*n
