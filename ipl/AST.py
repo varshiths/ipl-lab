@@ -54,6 +54,10 @@ class ASTNode:
             return (self.children[0]).statement() + "=" + (self.children[1]).statement()
         elif self.label in binary_ops.keys():
             return (self.children[0]).statement() + binary_ops[self.label] + (self.children[1]).statement()
+        elif self.label in unary_ops.keys():
+            return unary_ops[self.label] + (self.children[0]).statement()
+
+
 
     def control_flow_graph_node(node):
 

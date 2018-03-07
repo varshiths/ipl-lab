@@ -250,27 +250,24 @@ class Parser:
 
     def p_bool_expr(self, p):
         '''
-        bool_expr : variable
-                | num
-                | pointer
-                | reference
-                | LPAREN num_expr RPAREN
+        bool_expr : 
+                | LPAREN bool_expr RPAREN
                 | NOT bool_expr
                 | bool_expr AND bool_expr
                 | bool_expr OR bool_expr
-                | bool_expr EQ bool_expr
-                | bool_expr NEQ bool_expr
-                | bool_expr LESS bool_expr
-                | bool_expr GRT bool_expr
-                | bool_expr LESS_EQ bool_expr
-                | bool_expr GRT_EQ bool_expr
+                | expression EQ expression
+                | expression NEQ expression
+                | expression LESS expression
+                | expression GRT expression
+                | expression LESS_EQ expression
+                | expression GRT_EQ expression
                
         '''
         
         if len(p) == 2:
             p[0] = p[1]
         elif len(p) == 3:
-            p[0] = ASTNode(rev_binary_ops[p[1]], [p[2]])
+            p[0] = ASTNode(rev_unary_ops[p[1]], [p[2]])
         elif p[1] == "(":
             p[0] = p[2]
         else:
