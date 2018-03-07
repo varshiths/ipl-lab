@@ -3,7 +3,7 @@ import ply.yacc as yacc
 
 import sys
 
-from .AST import ASTNode
+from .AST import ASTNode, rev_binary_ops, rev_unary_ops
 
 class Parser:
 
@@ -73,12 +73,12 @@ class Parser:
                 | SEMICOLON
                 | LBRACE list_stat RBRACE
 
-        matched_stmt : IF LPAREN expression RPAREN temp1 ELSE temp1
+        matched_stmt : IF LPAREN bool_expr RPAREN temp1 ELSE temp1
                     | other
 
-        unmatched_stmt : IF LPAREN expression RPAREN temp1
-                    | IF LPAREN expression RPAREN unmatched_stmt
-                    | IF LPAREN expression RPAREN temp1 ELSE unmatched_stmt
+        unmatched_stmt : IF LPAREN bool_expr RPAREN temp1
+                    | IF LPAREN bool_expr RPAREN unmatched_stmt
+                    | IF LPAREN bool_expr RPAREN temp1 ELSE unmatched_stmt
         '''
         if len(p) == 2:
             if p[1] == ";":
@@ -109,9 +109,9 @@ class Parser:
                         
     def p_while(self, p):
         '''
-        while : WHILE LPAREN expression RPAREN LBRACE list_stat RBRACE
-                | WHILE LPAREN expression RPAREN statement
-                | WHILE LPAREN expression RPAREN SEMICOLON
+        while : WHILE LPAREN bool_expr RPAREN LBRACE list_stat RBRACE
+                | WHILE LPAREN bool_expr RPAREN statement
+                | WHILE LPAREN bool_expr RPAREN SEMICOLON
         '''
 
         if len(p) == 6:
@@ -244,11 +244,37 @@ class Parser:
         expression : anfp
                     | num_expr
         '''
-        if len(p) == 4:
+        
+        p[0] = p[1]
+        pass
+
+    def p_bool_expr(self, p):
+        '''
+        bool_expr : variable
+                | num
+                | pointer
+                | reference
+                | LPAREN num_expr RPAREN
+                | NOT bool_expr
+                | bool_expr AND bool_expr
+                | bool_expr OR bool_expr
+                | bool_expr EQ bool_expr
+                | bool_expr NEQ bool_expr
+                | bool_expr LESS bool_expr
+                | bool_expr GRT bool_expr
+                | bool_expr LESS_EQ bool_expr
+                | bool_expr GRT_EQ bool_expr
+               
+        '''
+        
+        if len(p) == 2:
+            p[0] = p[1]
+        elif len(p) == 3:
+            p[0] = ASTNode(rev_binary_ops[p[1]], [p[2]])
+        elif p[1] == "(":
             p[0] = p[2]
         else:
-            p[0] = p[1]
-        pass
+            p[0] = ASTNode(rev_binary_ops[p[2]], [p[1], p[3]])
 
     def p_num_expr(self, p):
         '''
@@ -261,61 +287,20 @@ class Parser:
                 | num_expr STAR num_expr
                 | num_expr DIV num_expr
                 | MINUS num_expr %prec UMINUS
-
-                | NOT num_expr
-                | num_expr AND num_expr
-                | num_expr OR num_expr
-                | num_expr EQ num_expr
-                | num_expr NEQ num_expr
-                | num_expr LESS num_expr
-                | num_expr GRT num_expr
-                | num_expr LESS_EQ num_expr
-                | num_expr GRT_EQ num_expr
                 | num_expr AMP num_expr %prec B_AND
                 | num_expr B_OR num_expr
+                
         '''
 
         if len(p) == 2:
             p[0] = p[1]
         elif len(p) == 3:
-            if p[2] == '-':
-                p[0] = ASTNode("UMINUS", [p[2]])
-            elif p[2] == '!':
-                p[0] = ASTNode("NOT", [p[2]])
-        else:
-            if p[2] == "+":
-                p[0] = ASTNode("PLUS", [p[1], p[3]])
-            elif p[2] == "-":
-                p[0] = ASTNode("MINUS", [p[1], p[3]])
-            elif p[2] == "*":
-                p[0] = ASTNode("MUL", [p[1], p[3]])
-            elif p[2] == "/":
-                p[0] = ASTNode("DIV", [p[1], p[3]])
-            elif p[2] == "&&":
-                p[0] = ASTNode("AND", [p[1], p[3]])
-            elif p[2] == "||":
-                p[0] = ASTNode("OR", [p[1], p[3]])
-            elif p[2] == "==":
-                p[0] = ASTNode("EQ", [p[1], p[3]])
-            elif p[2] == "!=":
-                p[0] = ASTNode("NEQ", [p[1], p[3]])
-            elif p[2] == "<":
-                p[0] = ASTNode("LESS", [p[1], p[3]])
-            elif p[2] == ">":
-                p[0] = ASTNode("GRT", [p[1], p[3]])
-            elif p[2] == "<=":
-                p[0] = ASTNode("LESS_EQ", [p[1], p[3]])
-            elif p[2] == ">=":
-                p[0] = ASTNode("GRT_EQ", [p[1], p[3]])
-            elif p[2] == "&":
-                p[0] = ASTNode("B_AND", [p[1], p[3]])
-            elif p[2] == "|":
-                p[0] = ASTNode("B_OR", [p[1], p[3]])
-            
-
-            # parenthesis handle
-            elif p[1] == "(":
+            p[0] = ASTNode(rev_unary_ops[p[1]], [p[2]])
+        elif p[1] == "(":
                 p[0] = p[2]
+        else:
+            p[0] = ASTNode(rev_binary_ops[p[2]], [p[1], p[3]])
+            
         pass
 
     def p_expression2(self, p):
@@ -357,77 +342,18 @@ class Parser:
             | anfp DIV num_expr
             | num_expr DIV anfp
 
-            | NOT anfp
-
-            | anfp AND anfp
-            | anfp OR anfp
-            | anfp EQ anfp
-            | anfp NEQ anfp
-            | anfp LESS anfp
-            | anfp GRT anfp
-            | anfp LESS_EQ anfp
-            | anfp GRT_EQ anfp
             | anfp AMP anfp %prec B_AND
             | anfp B_OR anfp
-
-            | num_expr AND anfp
-            | num_expr OR anfp
-            | num_expr EQ anfp
-            | num_expr NEQ anfp
-            | num_expr LESS anfp
-            | num_expr GRT anfp
-            | num_expr LESS_EQ anfp
-            | num_expr GRT_EQ anfp
             | num_expr AMP anfp %prec B_AND
             | num_expr B_OR anfp
-
-            | anfp AND num_expr
-            | anfp OR num_expr
-            | anfp EQ num_expr
-            | anfp NEQ num_expr
-            | anfp LESS num_expr
-            | anfp GRT num_expr
-            | anfp LESS_EQ num_expr
-            | anfp GRT_EQ num_expr
             | anfp AMP num_expr %prec B_AND
             | anfp B_OR num_expr
         '''
 
         if len(p) == 3:
-            if p[2] == '-':
-                p[0] = ASTNode("UMINUS", [p[2]])
-            elif p[2] == '!':
-                p[0] = ASTNode("NOT", [p[2]])
-
+            p[0] = ASTNode(rev_unary_ops[p[1]], [p[2]])
         else:
-            if p[2] == "+":
-                p[0] = ASTNode("PLUS", [p[1], p[3]])
-            elif p[2] == "-":
-                p[0] = ASTNode("MINUS", [p[1], p[3]])
-            elif p[2] == "*":
-                p[0] = ASTNode("MUL", [p[1], p[3]])
-            elif p[2] == "/":
-                p[0] = ASTNode("DIV", [p[1], p[3]])
-            elif p[2] == "&&":
-                p[0] = ASTNode("AND", [p[1], p[3]])
-            elif p[2] == "||":
-                p[0] = ASTNode("OR", [p[1], p[3]])
-            elif p[2] == "==":
-                p[0] = ASTNode("EQ", [p[1], p[3]])
-            elif p[2] == "!=":
-                p[0] = ASTNode("NEQ", [p[1], p[3]])
-            elif p[2] == "<":
-                p[0] = ASTNode("LESS", [p[1], p[3]])
-            elif p[2] == ">":
-                p[0] = ASTNode("GRT", [p[1], p[3]])
-            elif p[2] == "<=":
-                p[0] = ASTNode("LESS_EQ", [p[1], p[3]])
-            elif p[2] == ">=":
-                p[0] = ASTNode("GRT_EQ", [p[1], p[3]])
-            elif p[2] == "&":
-                p[0] = ASTNode("B_AND", [p[1], p[3]])
-            elif p[2] == "|":
-                p[0] = ASTNode("B_OR", [p[1], p[3]])
+            p[0] = ASTNode(rev_binary_ops[p[2]], [p[1], p[3]])
 
         pass
 
