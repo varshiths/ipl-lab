@@ -7,6 +7,7 @@ def tabs(n):
 class ASTNode:
 
     blocks = {}
+    conditions = {}
 
     def __init__(self, label, children):
         self.label = label
@@ -16,10 +17,15 @@ class ASTNode:
         if self.label == "VAR" or self.label == "CONST":
             print(tabs(ntabs), end='')            
             print(self.label, "(", self.children[0].label, ")", sep='')
+        elif self.label == "BLOCK":
+            for child in self.children:
+                child.print_tree(ntabs)
         else:
-            print(tabs(ntabs), self.label, sep='')
-            
-            print(tabs(ntabs), "(", sep='')
+            if self.label == "IF" or self.label == "WHILE":
+                print(tabs(ntabs), self.label + "(", sep='')
+            else:
+                print(tabs(ntabs), self.label, sep='')
+                print(tabs(ntabs), "(", sep='')
             if len(self.children) != 0:
                 for i, child in enumerate(self.children):
                     if child is not None:
@@ -83,8 +89,12 @@ class ASTNode:
                 false_blk = len(ASTNode.blocks.keys())
                 b = ASTNode.control_flow_graph_node(node.children[2])
 
+                conditions_length = len(ASTNode.conditions.keys())
+                ASTNode.conditions[conditions_length] = cond
+
                 ASTNode.blocks[curr_block] = ["if"]
-                ASTNode.blocks[curr_block].append("if(" + cond + ")")
+                ASTNode.blocks[curr_block].append("t%d = %s" % (conditions_length, cond))
+                ASTNode.blocks[curr_block].append("if(t%d)" % (conditions_length))
 
                 end_list = []
                 if len(a) == 0:
@@ -108,8 +118,12 @@ class ASTNode:
                 true_blk = curr_block + 1
                 a = ASTNode.control_flow_graph_node(node.children[1])
 
+                conditions_length = len(ASTNode.conditions.keys())
+                ASTNode.conditions[conditions_length] = cond
+
                 ASTNode.blocks[curr_block] = ["if"]
-                ASTNode.blocks[curr_block].append("if(" + cond + ")")
+                ASTNode.blocks[curr_block].append("t%d = %s" % (conditions_length, cond))
+                ASTNode.blocks[curr_block].append("if(t%d)" % (conditions_length))
 
                 if len(a) != 0:
                     ASTNode.blocks[true_blk].append(curr_block)
@@ -121,21 +135,26 @@ class ASTNode:
 
 
     def generate_flow_graph(self):
+        ASTNode.blocks[0] = [None]
 
         end_list = ASTNode.control_flow_graph_node(self)
 
+        last_blk_id = len(ASTNode.blocks.keys())
         for blk in end_list:
-            ASTNode.blocks[blk].append(-1)
+            ASTNode.blocks[blk].append(last_blk_id)
+
+        ASTNode.blocks[last_blk_id] = [-1]
 
     def print_flow_graph(self):
 
         flow = ASTNode.blocks
 
-        for key, value in sorted(flow.items(), key=lambda x: x[0]):
+        for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
             print("<bb %d>" % key)
             if value[0] == "if":
-                print("%s goto %s" % (value[1], get_block_str(value[2])))
-                print("else goto %s" % (get_block_str(value[3])))
+                print(value[1])
+                print("%s goto %s" % (value[2], get_block_str(value[3])))
+                print("else goto %s" % (get_block_str(value[4])))
 
             else:
                 for statement in value[:-1]:

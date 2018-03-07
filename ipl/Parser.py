@@ -440,11 +440,7 @@ class Parser:
     def process(self, data):
         try:
             a = yacc.parse(data, lexer=self.lexer.lexer)
-            for node in a.children:
-                if node is not None:
-                    node.print_tree()
-                    print()
-
+            a.print_tree()
             a.generate_flow_graph()
             a.print_flow_graph()
 
