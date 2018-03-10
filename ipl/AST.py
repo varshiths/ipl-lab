@@ -95,6 +95,7 @@ class ASTNode:
             return ret_list
 
 
+
     def control_flow_graph_node(node):
 
         if node is not None:
@@ -170,8 +171,9 @@ class ASTNode:
                 ASTNode.blocks[curr_block].append("if(%s)" % (cond_list[-1]))
 
                 if len(a) != 0:
-                    ASTNode.blocks[true_blk].append(curr_block)
                     ASTNode.blocks[curr_block].append(true_blk)
+                    for blk in a:
+                        ASTNode.blocks[blk].append(curr_block)
                 else:
                     ASTNode.blocks[curr_block].append(curr_block)
 
@@ -205,7 +207,11 @@ class ASTNode:
             else:
                 for statement in value[:-1]:
                     print(statement)
-                print("goto %s" % (get_block_str(value[-1])))
+                next_block_num = get_block_str(value[-1])
+                if next_block_num != "End":
+                    print("goto %s" % (next_block_num))
+                else:
+                    print(next_block_num)
 
             print()
             
