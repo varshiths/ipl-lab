@@ -10,7 +10,7 @@ class Lexer:
 	        'LBRACE', 'RBRACE',
 	        'SEMICOLON', 'STAR', 'AMP',
 	        'PLUS', 'MINUS', 'DIV', 'LESS', 'GRT', 'LESS_EQ', 'GRT_EQ', 'EQ', 'NEQ', 'AND',
-	        'OR', 'B_OR', 'NOT'
+	        'OR', 'NOT'
 	]
 
 	reserved = {
@@ -54,10 +54,6 @@ class Lexer:
 	t_NEQ = r'!='
 	t_NOT = r'!'
 	t_OR = r'\|\|'
-	t_B_OR = r'\|'
-	
-
-
 
 	def t_NAME(self, t):
 	    r'[a-zA-Z_][a-zA-Z0-9_]*'

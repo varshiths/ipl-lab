@@ -20,8 +20,6 @@ class Parser:
         ('right', 'ASSIGN'),
         ('left', 'OR'),
         ('left', 'AND'),
-        ('left', 'B_OR'),
-        ('left', 'B_AND'),
         ('left', 'EQ', 'NEQ'),
         ('left', 'LESS', 'LESS_EQ', 'GRT', 'GRT_EQ'),
         ('left', 'PLUS', 'MINUS'),
@@ -287,9 +285,6 @@ class Parser:
                 | num_expr STAR num_expr
                 | num_expr DIV num_expr
                 | MINUS num_expr %prec UMINUS
-                | num_expr AMP num_expr %prec B_AND
-                | num_expr B_OR num_expr
-                
         '''
 
         if len(p) == 2:
@@ -341,13 +336,6 @@ class Parser:
             | num_expr STAR anfp
             | anfp DIV num_expr
             | num_expr DIV anfp
-
-            | anfp AMP anfp %prec B_AND
-            | anfp B_OR anfp
-            | num_expr AMP anfp %prec B_AND
-            | num_expr B_OR anfp
-            | anfp AMP num_expr %prec B_AND
-            | anfp B_OR num_expr
         '''
 
         if len(p) == 3:

@@ -1,5 +1,5 @@
 binary_ops = {'PLUS':'+', 'MINUS':'-', 'MUL':'*', 'DIV':'/', 'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'==', 'NE':'!=', 'AND':'&&',
-            'OR':'||', 'B_AND':'&', 'B_OR':'|'}
+            'OR':'||'}
 
 unary_ops = {'UMINUS':'-', 'NOT':'!'}
 rev_unary_ops = {}
