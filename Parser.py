@@ -6,7 +6,7 @@ import os
 from contextlib import redirect_stdout
 
 LDBG = False
-YDBG = True
+YDBG = False
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
@@ -20,7 +20,7 @@ if __name__ == "__main__":
     with open(sys.argv[1], 'r') as f:
         ast, cfg = parser.process(f.read())
 
-    with open(input_file + ".ast", 'w+') as f:
+    with open(sys.argv[1] + ".ast", 'w+') as f:
         f.write(ast)
-    with open(input_file + ".cfg", 'w+') as f:
+    with open(sys.argv[1] + ".cfg", 'w+') as f:
         f.write(cfg)
