@@ -41,6 +41,8 @@ class ASTNode:
                         child.print_tree(ntabs + 1)
                     if i != len(non_empty_children)-1:
                         print(tabs(ntabs+1), ",", sep='')
+            if self.label == "WHILE" or self.label == "IF":
+                print()
             print(tabs(ntabs), ")", sep='')
 
     def statement(self):
