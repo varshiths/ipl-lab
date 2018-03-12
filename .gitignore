@@ -6,3 +6,6 @@ parsetab.py
 *.out
 test
 *.txt
+*.cfg
+*.ast
+*.stdout

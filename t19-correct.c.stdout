@@ -1,8 +1,0 @@
-Traceback (most recent call last):
-  File "Parser.py", line 1, in <module>
-    from ipl.Parser import Parser
-  File "/opt/labuser/lab3/ipl-lab/ipl/Parser.py", line 1, in <module>
-    from .Lexer import Lexer
-  File "/opt/labuser/lab3/ipl-lab/ipl/Lexer.py", line 1, in <module>
-    import ply.lex as lex
-ImportError: No module named 'ply'
