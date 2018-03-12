@@ -32,12 +32,16 @@ class ASTNode:
         else:
             print(tabs(ntabs), self.label, sep='')
             print(tabs(ntabs), "(", sep='')
-            if len(self.children) != 0:
-                for i, child in enumerate(self.children):
+
+            non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+
+            if len(non_empty_children) != 0:
+                for i, child in enumerate(non_empty_children):
                     if child is not None:
                         child.print_tree(ntabs + 1)
-                    if i != len(self.children)-1:
+                    if i != len(non_empty_children)-1:
                         print(tabs(ntabs+1), ",", sep='')
+            print()
             print(tabs(ntabs), ")", sep='')
 
     def statement(self):
@@ -96,7 +100,7 @@ class ASTNode:
     def control_flow_graph_node(node):
 
         if node is not None:
-            if node.label == "BLOCK":
+            if node.label == "BLOCK" or node.label == "EBLOCK":
                 if len(node.children) == 0:
                     return []
                 else:
@@ -191,6 +195,7 @@ class ASTNode:
     def print_flow_graph(self):
 
         flow = ASTNode.blocks
+        print()
 
         for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
             print("<bb %d>" % key)

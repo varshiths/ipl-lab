@@ -106,7 +106,10 @@ class Parser:
                 else:
                     else_body_node.children.append(p[7])
 
-            p[0] = ASTNode("IF", [p[3], if_body_node, else_body_node])
+            if len(p) == 8:
+                p[0] = ASTNode("IF", [p[3], if_body_node, else_body_node])
+            else:
+                p[0] = ASTNode("IF", [p[3], if_body_node, ASTNode("EBLOCK")])
                         
     def p_while(self, p):
         '''
@@ -362,7 +365,7 @@ class Parser:
             a.generate_flow_graph()
             with io.StringIO() as buf, redirect_stdout(buf):
                 a.print_flow_graph()
-                cfg = buf.getvalue()
+                cfg = buf.getvalue()[:-1]
 
             return ast, cfg
 
