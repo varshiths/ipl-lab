@@ -109,7 +109,7 @@ class Parser:
             if len(p) == 8:
                 p[0] = ASTNode("IF", [p[3], if_body_node, else_body_node])
             else:
-                p[0] = ASTNode("IF", [p[3], if_body_node, ASTNode("EBLOCK")])
+                p[0] = ASTNode("IF", [p[3], if_body_node, ASTNode("EBLOCK", [])])
                         
     def p_while(self, p):
         '''
