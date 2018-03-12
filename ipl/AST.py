@@ -30,11 +30,8 @@ class ASTNode:
             for child in self.children:
                 child.print_tree(ntabs)
         else:
-            if self.label == "IF" or self.label == "WHILE":
-                print(tabs(ntabs), self.label + "(", sep='')
-            else:
-                print(tabs(ntabs), self.label, sep='')
-                print(tabs(ntabs), "(", sep='')
+            print(tabs(ntabs), self.label, sep='')
+            print(tabs(ntabs), "(", sep='')
             if len(self.children) != 0:
                 for i, child in enumerate(self.children):
                     if child is not None:

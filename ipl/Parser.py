@@ -3,6 +3,9 @@ import ply.yacc as yacc
 
 import sys
 
+import io
+from contextlib import redirect_stdout
+
 from .AST import ASTNode, rev_binary_ops, rev_unary_ops
 
 class Parser:
@@ -363,11 +366,21 @@ class Parser:
     def process(self, data):
         try:
             a = yacc.parse(data, lexer=self.lexer.lexer)
-            a.print_tree()
+
+            with io.StringIO() as buf, redirect_stdout(buf):
+                a.print_tree()
+                ast = buf.getvalue()
+
             a.generate_flow_graph()
-            a.print_flow_graph()
+            with io.StringIO() as buf, redirect_stdout(buf):
+                a.print_flow_graph()
+                cfg = buf.getvalue()
+
+            return ast, cfg
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             print(e, file=sys.stderr)
+
+            return "", ""
