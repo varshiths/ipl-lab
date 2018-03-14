@@ -15,11 +15,13 @@ class Lexer:
 
 	reserved = {
 	    'int' : 'INT',
+	    'float': 'FLOAT',
 	    'void' : 'VOID',
-	    'main' : 'MAIN',
+	    #'main' : 'MAIN',
 	    'if'   : 'IF',
 	    'while' : 'WHILE',
-	    'else' : 'ELSE'
+	    'else' : 'ELSE',
+	    'return' : 'RETURN'
 	}
 	tokens += list(reserved.values())
 

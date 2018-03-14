@@ -28,21 +28,82 @@ class Parser:
         ('right', 'NOT'),
         ('left', 'RPAREN'),
         ('left', 'ELSE'),
+        ('left', 'SEMICOLON'),
+        ('left', 'TYPE'),
     )
 
-    def p_main(self, p):
+    def p_prog(self, p):
         '''
-        main : VOID MAIN LPAREN RPAREN LBRACE body RBRACE
+        prog : var_decls proc_decls
+            | proc_decls
+
         '''
-        p[0] = p[6]
+        pass
+
+    def p_var_decls(self, p):
+        '''
+
+        var_decls : declaration SEMICOLON
+                    | declaration SEMICOLON var_decls
+
+        '''
+        pass
+
+    def p_proc_decls(self, p):
+        '''
+        proc_decls : 
+                | proc proc_decls
+        '''
+        pass
+
+    def p_proc(self, p):
+        '''
+        proc : type NAME LPAREN proc_args RPAREN LBRACE body RBRACE
+                | type NAME LPAREN proc_proto_args RPAREN SEMICOLON
+        
+
+        '''
+        pass
+
+    def p_proc_args(self, p):
+        '''
+        proc_args : 
+                | proc_n_args
+
+        proc_n_args : arg
+                | arg COMMA proc_n_args
+
+        arg : type declr_entity
+
+        proc_proto_args : proc_args
+                | not_proc_args
+
+        not_proc_args : type
+                    | type COMMA proc_n_args
+                    | proc_n_args COMMA type
+                    | type COMMA not_proc_args
+                    | not_proc_args COMMA type
+
+        '''
+
         pass
 
     def p_body(self, p):
         '''
-        body : list_stat
+        body : list_stat ret_stmt
+                | list_stat
         '''
-        p[0] = p[1]
-        pass
+        if len(p) == 2:
+            p[0] = p[1]
+        else:
+            p[1].children.append(p[2])
+            p[0] = p[1]
+
+    def p_ret_stmt(self, p):
+        '''
+        ret_stmt : RETURN expression
+        '''
+        p[0] = ASTNode("RETURN", [p[2]])
 
     def p_list_stat(self, p):
         '''
@@ -129,9 +190,11 @@ class Parser:
 
     def p_type(self, p):
         '''
-        type : INT
+        type : INT %prec TYPE
+            | FLOAT %prec TYPE
+            | VOID %prec TYPE
         '''
-            # | VOID
+           
         pass
 
     def p_pointer(self, p):
