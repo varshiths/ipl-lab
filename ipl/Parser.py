@@ -58,34 +58,28 @@ class Parser:
 
     def p_proc(self, p):
         '''
-        proc : type NAME LPAREN proc_args RPAREN LBRACE body RBRACE
-                | type NAME LPAREN proc_proto_args RPAREN SEMICOLON
-        
+        proc : type NAME LPAREN RPAREN LBRACE body RBRACE
+            | type pointer_d LPAREN RPAREN LBRACE body RBRACE
 
+            | type NAME LPAREN proc_args RPAREN LBRACE body RBRACE
+            | type pointer_d LPAREN proc_args RPAREN LBRACE body RBRACE
+
+            | type NAME LPAREN RPAREN SEMICOLON
+            | type pointer_d LPAREN RPAREN SEMICOLON
+
+            | type NAME LPAREN proc_args RPAREN SEMICOLON
+            | type pointer_d LPAREN proc_args RPAREN SEMICOLON
         '''
         pass
 
     def p_proc_args(self, p):
         '''
-        proc_args : 
-                | proc_n_args
-
-        proc_n_args : arg
-                | arg COMMA proc_n_args
+        proc_args : arg
+                | arg COMMA proc_args
 
         arg : type declr_entity
-
-        proc_proto_args : proc_args
-                | not_proc_args
-
-        not_proc_args : type
-                    | type COMMA proc_n_args
-                    | proc_n_args COMMA type
-                    | type COMMA not_proc_args
-                    | not_proc_args COMMA type
-
+            | type
         '''
-
         pass
 
     def p_body(self, p):
@@ -101,7 +95,7 @@ class Parser:
 
     def p_ret_stmt(self, p):
         '''
-        ret_stmt : RETURN expression
+        ret_stmt : RETURN expression SEMICOLON
         '''
         p[0] = ASTNode("RETURN", [p[2]])
 
@@ -124,6 +118,7 @@ class Parser:
 
         other : declaration SEMICOLON
                 | assignment SEMICOLON
+                | func_call SEMICOLON
                 | while
         '''
         p[0] = p[1]
@@ -186,7 +181,6 @@ class Parser:
                 p[0] = ASTNode("WHILE", [p[3], ASTNode("BLOCK", [p[5]])])
         else:
             p[0] = ASTNode("WHILE", [p[3], p[6]])
-
 
     def p_type(self, p):
         '''
@@ -378,6 +372,7 @@ class Parser:
             | pointer
             | variable
             | rec_anfp
+            | func_call
             | LPAREN anfp RPAREN
         '''
 
@@ -385,6 +380,20 @@ class Parser:
             p[0] = p[2]
         else:
             p[0] = p[1]
+        pass
+
+    def p_func_call(self, p):
+        '''
+        func_call : NAME LPAREN RPAREN
+                | NAME LPAREN func_args RPAREN
+
+        func_args : func_arg
+                    | func_arg COMMA func_args
+
+        func_arg : num
+                | declr_entity
+                | func_call
+        '''
         pass
 
     def p_rec_anfp(self, p):
