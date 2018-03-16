@@ -8,6 +8,8 @@ from contextlib import redirect_stdout
 
 from .AST import ASTNode, rev_binary_ops, rev_unary_ops
 
+from .Sym import Sym
+
 class Parser:
 
     tokens = Lexer.tokens
@@ -15,6 +17,7 @@ class Parser:
     def __init__(self, parser_debug=False, lexer_debug=False):
         self.lexer = Lexer(lexer_debug)
         self.parser = yacc.yacc(debug=parser_debug, module=self)
+        self.symbol_table = Sym()
 
     precedence = (
         ('right', 'ASSIGN'),
@@ -38,15 +41,29 @@ class Parser:
             | proc_decls
 
         '''
+        if len(p) == 3:
+            for entity in p[1]:
+                self.symbol_table.add_entry(
+                    entity,
+                    "global"
+                    )
+
+        p[0] = self.symbol_table
         pass
 
     def p_var_decls(self, p):
         '''
-
         var_decls : declaration SEMICOLON
-                    | declaration SEMICOLON var_decls
-
+                    | var_decls declaration SEMICOLON
         '''
+                    # | declaration SEMICOLON var_decls 
+        p[0] = []
+        if len(p) == 3:
+            p[0].extend(p[1])
+        else:
+            p[0].extend(p[1]) 
+            p[0].extend(p[2]) 
+            # p[0].extend(p[3]) 
         pass
 
     def p_proc_decls(self, p):
@@ -58,28 +75,68 @@ class Parser:
 
     def p_proc(self, p):
         '''
-        proc : type NAME LPAREN RPAREN LBRACE body RBRACE
-            | type pointer_d LPAREN RPAREN LBRACE body RBRACE
-
-            | type NAME LPAREN proc_args RPAREN LBRACE body RBRACE
-            | type pointer_d LPAREN proc_args RPAREN LBRACE body RBRACE
-
-            | type NAME LPAREN RPAREN SEMICOLON
+        proc : type variable LPAREN RPAREN SEMICOLON
             | type pointer_d LPAREN RPAREN SEMICOLON
 
-            | type NAME LPAREN proc_args RPAREN SEMICOLON
+            | type variable LPAREN proc_args RPAREN SEMICOLON
             | type pointer_d LPAREN proc_args RPAREN SEMICOLON
+
+            | type variable LPAREN RPAREN LBRACE body RBRACE
+            | type pointer_d LPAREN RPAREN LBRACE body RBRACE
+
+            | type variable LPAREN proc_args RPAREN LBRACE body RBRACE
+            | type pointer_d LPAREN proc_args RPAREN LBRACE body RBRACE
         '''
+        procedure_name = p[2]["attr"]["name"]
+        ret_type = {
+            "base_type" : p[1],
+            "level" : p[2]["attr"]["level"]
+        }
+        list_of_parameters = []
+
+        if len(p) == 6:
+            pass
+        elif len(p) == 7:
+            list_of_parameters = p[4]
+        elif len(p) == 8:
+            pass
+        elif len(p) == 9:
+            list_of_parameters = p[4]
+
+        self.symbol_table.add_procedure(procedure_name, ret_type, list_of_parameters)
         pass
 
     def p_proc_args(self, p):
         '''
         proc_args : arg
                 | arg COMMA proc_args
+        '''
+        p[0] = []
+        if len(p) == 2:
+            p[0].append(p[1])
+        else:
+            p[0].append(p[1]) 
+            p[0].extend(p[3]) 
+        pass
 
+    def p_arg(self, p):
+        '''
         arg : type declr_entity
             | type
         '''
+        name = None
+        base_type = p[1]
+        level = 0
+
+        if len(p) == 3:
+            name = p[2]["attr"]["name"]
+            level = p[2]["attr"]["level"]
+
+        p[0] = {
+            "name" : name,
+            "base_type" : base_type,
+            "level" : level
+        }
         pass
 
     def p_body(self, p):
@@ -188,7 +245,7 @@ class Parser:
             | FLOAT %prec TYPE
             | VOID %prec TYPE
         '''
-           
+        p[0] = p[1]           
         pass
 
     def p_pointer(self, p):
@@ -205,6 +262,13 @@ class Parser:
         pointer_d : STAR variable %prec REF
                     | STAR pointer_d %prec REF
         '''
+        p[0] = {}
+        p[0]["node"] = None
+        p[0]["attr"] = {
+            "name" : p[2]["attr"]["name"], 
+            "base_type" : p[2]["attr"]["base_type"], 
+            "level" : 1 + p[2]["attr"]["level"]
+        }
         pass
 
     def p_combination(self, p):
@@ -234,19 +298,34 @@ class Parser:
         '''
         variable : NAME
         '''
-        p[0] = ASTNode("VAR", [ASTNode(p[1], [])])
+        node = ASTNode("VAR", [ASTNode(p[1], [])])
+
+        attr = {
+            "name": p[1],
+            "base_type": None,
+            "level": 0
+        }
+
+        p[0] = {
+            "node" : node,
+            "attr" : attr
+        }
         pass
 
     def p_declr_entity_var(self, p):
         '''
         declr_entity : variable
         '''
+        p[0] = {}
+        p[0]["node"] = None
+        p[0]["attr"] = p[1]["attr"]
         pass
 
     def p_declr_entity_pointer(self, p):
         '''
         declr_entity : pointer_d
         '''
+        p[0] = p[1]
         pass
 
     def p_list_var(self, p):
@@ -254,13 +333,22 @@ class Parser:
         list_var : declr_entity
                 | list_var COMMA declr_entity
         '''
+        p[0] = []
+        if len(p) == 2:
+            p[0].append(p[1]["attr"])
+        else:
+            p[0].extend(p[1]) 
+            p[0].append(p[3]["attr"]) 
         pass
 
     def p_declaration(self, p):
         '''
         declaration : type list_var
         '''
-        p[0] = None
+        p[0] = []
+        for entity in p[2]:
+            entity["base_type"] = p[1]
+            p[0].append(entity)
         pass
 
     def p_assignment(self, p):
@@ -430,16 +518,17 @@ class Parser:
         try:
             a = yacc.parse(data, lexer=self.lexer.lexer)
 
-            with io.StringIO() as buf, redirect_stdout(buf):
-                a.print_tree()
-                ast = buf.getvalue()
+            # with io.StringIO() as buf, redirect_stdout(buf):
+            #     a.print_tree()
+            #     ast = buf.getvalue()
 
-            a.generate_flow_graph()
-            with io.StringIO() as buf, redirect_stdout(buf):
-                a.print_flow_graph()
-                cfg = buf.getvalue()[:-1]
+            # a.generate_flow_graph()
+            # with io.StringIO() as buf, redirect_stdout(buf):
+            #     a.print_flow_graph()
+            #     cfg = buf.getvalue()[:-1]
 
-            return ast, cfg
+            a.print_symbol_table()
+            return "ast", "cfg"
 
         except Exception as e:
             import traceback
