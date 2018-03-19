@@ -3,9 +3,13 @@ import pprint
 class Sym:
 	def __init__(self):
 		self.table = {}
-		self.add_procedure('global')
 
 	def add_entry(self, entry_attr, procedure_name):
+
+		if procedure_name == "global":
+			self._add_global_entry(entry_attr)
+			return
+
 		entry_name = entry_attr["name"]
 		entry_attr.pop("name")
 
@@ -16,11 +20,25 @@ class Sym:
 
 		self.table[procedure_name]['symbol_table'][entry_name] = entry_attr
 
+	def _add_global_entry(self, entry_attr):
+
+		entry_name = entry_attr["name"]
+		entry_attr.pop("name")
+
+		if entry_name in self.table.keys():
+			raise Exception("Redeclaration of global entity")
+
+		self.table[entry_name] = {
+			'type': "variable", 
+			'attr': entry_attr
+		}
+
 	def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list()):
 		if procedure_name in self.table.keys():
 			raise Exception("Redeclaration of procedure")
 
 		self.table[procedure_name] = {
+			'type': "procedure", 
 			'return_type': ret_type, 
 			'symbol_table':{}, 
 			'parameters':list_of_parameters

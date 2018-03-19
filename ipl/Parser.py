@@ -104,6 +104,15 @@ class Parser:
             list_of_parameters = p[4]
 
         self.symbol_table.add_procedure(procedure_name, ret_type, list_of_parameters)
+
+        list_declrs = []
+        if len(p) == 8:
+            list_declrs = p[6]["attr"]
+        elif len(p) == 9:
+            list_declrs = p[7]["attr"]
+        
+        for declr in list_declrs:
+            self.symbol_table.add_entry(declr, procedure_name)
         pass
 
     def p_proc_args(self, p):
@@ -141,20 +150,40 @@ class Parser:
 
     def p_body(self, p):
         '''
-        body : list_stat ret_stmt
-                | list_stat
+        body : list_declr list_stat ret_stmt
+                | list_declr list_stat
         '''
-        if len(p) == 2:
-            p[0] = p[1]
+        node = None
+        if len(p) == 3:
+            node = p[2]
         else:
-            p[1].children.append(p[2])
-            p[0] = p[1]
+            p[2].children.append(p[3])
+            node = p[2]
+
+        attr = p[1]
+
+        p[0] = {
+            "node" : node,
+            "attr" : attr
+        }
 
     def p_ret_stmt(self, p):
         '''
         ret_stmt : RETURN expression SEMICOLON
         '''
         p[0] = ASTNode("RETURN", [p[2]])
+
+    def p_list_declr(self, p):
+        '''
+        list_declr :
+                | declaration SEMICOLON list_declr
+        '''
+
+        attr = []
+        if len(p) == 4:
+            attr.extend(p[1])
+            attr.extend(p[3])
+        p[0] = attr
 
     def p_list_stat(self, p):
         '''
@@ -173,8 +202,7 @@ class Parser:
         statement : matched_stmt
                 | unmatched_stmt
 
-        other : declaration SEMICOLON
-                | assignment SEMICOLON
+        other :  assignment SEMICOLON
                 | func_call SEMICOLON
                 | while
         '''
