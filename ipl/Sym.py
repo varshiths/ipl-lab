@@ -5,7 +5,10 @@ class Sym:
 		self.table = {}
 
 	def __getitem__(self, item):
-         return self.table[item]
+		if item == "global":
+			return self.table
+		else:
+			return self.table[item]
 
 	def add_entry(self, entry_attr, procedure_name):
 

@@ -47,7 +47,7 @@ class Lexer:
 	t_MINUS = r'\-'
 	t_DIV = r'/'
 
-	t_NUMBER = r'\d+'
+	t_NUMBER = r'\d*\.\d+ | \d+ '
 
 	t_LESS_EQ = r'<='
 	t_LESS = r'<'

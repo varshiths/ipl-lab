@@ -10,6 +10,10 @@ from .AST import ASTNode, rev_binary_ops, rev_unary_ops
 
 from .Sym import Sym
 
+def remove_name(x):
+    x.pop("name")
+    return x
+
 class Parser:
 
     tokens = Lexer.tokens
@@ -604,6 +608,70 @@ class Parser:
     def print_symbol_table(self):
         self.symbol_table.print_table()
 
+    def rec_type_check(self, node, scope):
+
+        children = node.children
+
+        if node.label == "GLOBAL":
+            scope = "global"
+            for child in children:
+                self.rec_type_check(child, scope)
+
+        elif node.label == "FUNCTION":
+            scope = children[0].children[0].label
+            for child in children[1:]:
+                self.rec_type_check(child, scope)
+
+        elif node.label == "RETURN":
+            ret_type = self.rec_type_check(children[0], scope)
+            if ret_type != self.symbol_table[scope]["return_type"]:
+                message = str(ret_type) + " " + str(self.symbol_table[scope]["return_type"])
+                raise Exception("Return type mismatch: " + message)
+
+        elif node.label == "BLOCK" or node.label == "EBLOCK":
+            for child in children:
+                self.rec_type_check(child, scope)
+
+        elif node.label == "CALL":
+            func_name = children[0].children[0].label
+
+            if func_name not in self.symbol_table.keys():
+                message = func_name
+                raise Exception("Function not defined: " + message)
+            if self.symbol_table[func_name]["type"] != "procedure":
+                message = func_name
+                raise Exception("Not a function: " + message)
+
+            plist = map(lambda x: remove_name(x), self.symbol_table[func_name]["parameters"])
+            calllist = [self.rec_type_check(x, scope) for x in children[1:]]
+            result = [ plist[i] == calllist[i] for i in range(min(len(calllist), len(plist))) ]
+            if (len(plist) != len(calllist)) or (False in result):
+                raise Exception("Function parameters mismatch: ")
+
+            return self.symbol_table[func_name]["return_type"]
+
+        elif node.label == "IF":
+            self.rec_type_check(children[0], scope)
+            self.rec_type_check(children[1], scope)
+            self.rec_type_check(children[2], scope)
+
+        elif node.label == "WHILE":
+            self.rec_type_check(children[0], scope)
+            self.rec_type_check(children[1], scope)
+
+        # elif node.label == "DEREF":
+        # elif node.label == "ADDR":
+        # elif node.label == "CONST":
+            
+        # elif node.label == "VAR":
+        # elif node.label == "ASGN":
+
+        pass
+
+    def type_check(self):
+        self.rec_type_check(self.syntax_tree, None)
+        pass
+
     def process(self, data):
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
@@ -619,6 +687,7 @@ class Parser:
 
             self.print_syntax_tree()
             self.print_symbol_table()
+            self.type_check()
 
             return "ast", "cfg"
 
