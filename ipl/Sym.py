@@ -1,66 +1,77 @@
 import pprint
 
 class Sym:
-	def __init__(self):
-		self.table = {}
+    def __init__(self):
+        self.table = {}
 
-	def __getitem__(self, item):
-		if item == "global":
-			return self.table
-		else:
-			return self.table[item]
+    def __getitem__(self, item):
+        return self.table[item].copy()
 
-	def add_entry(self, entry_attr, procedure_name):
+    def keys(self):
+        return self.table.keys()
 
-		if procedure_name == "global":
-			self._add_global_entry(entry_attr)
-			return
+    def get_entry(self, entry_name, scope):
 
-		entry_name = entry_attr["name"]
-		entry_attr.pop("name")
+        ntype = None
+        exists = True
 
-		if procedure_name not in self.table.keys():
-			raise Exception("Procedure_name does not exist")
-		if entry_name in self.table[procedure_name]['symbol_table'].keys():
-			raise Exception("Redeclaration of variable")
+        if scope != "global":
+            if entry_name in self.table[scope]["symbol_table"].keys():
+                ntype = self.table[scope]["symbol_table"][entry_name]
+            else:
+                scope = "global"
+        if scope == "global":
+            if entry_name in self.table.keys():
+                ntype = self.table[entry_name]
+                ntype.pop("type")
+            else:
+                exists = False
 
-		self.table[procedure_name]['symbol_table'][entry_name] = entry_attr
+        return ntype.copy(), exists
 
-	def _add_global_entry(self, entry_attr):
+    def add_entry(self, entry_attr, procedure_name):
 
-		entry_name = entry_attr["name"]
-		entry_attr.pop("name")
+        if procedure_name == "global":
+            self._add_global_entry(entry_attr)
+            return
 
-		if entry_name in self.table.keys():
-			raise Exception("Redeclaration of global entity")
+        entry_name = entry_attr["name"]
+        entry_attr.pop("name")
 
-		self.table[entry_name] = {
-			'type': "variable", 
-			'attr': entry_attr
-		}
+        if procedure_name not in self.table.keys():
+            raise Exception("Procedure_name does not exist")
+        if entry_name in self.table[procedure_name]['symbol_table'].keys():
+            raise Exception("Redeclaration of variable")
 
-	def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list(), prototype=False):
-		if procedure_name in self.table.keys():
-			if self.table[procedure_name]["prototype"] == False:
-				raise Exception("Redeclaration of procedure")
+        self.table[procedure_name]['symbol_table'][entry_name] = entry_attr
 
-		self.table[procedure_name] = {
-			'type': "procedure", 
-			'prototype': prototype, 
-			'return_type': ret_type, 
-			'symbol_table':{}, 
-			'parameters':list_of_parameters
-		}
+    def _add_global_entry(self, entry_attr):
 
-	def print_table(self):
+        entry_name = entry_attr["name"]
+        entry_attr.pop("name")
 
-		pp = pprint.PrettyPrinter(indent=4)
+        if entry_name in self.table.keys():
+            raise Exception("Redeclaration of global entity")
 
-		pp.pprint(self.table)
-		pass
+        self.table[entry_name] = entry_attr
+        self.table[entry_name]["type"] = "variable"
 
+    def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list(), prototype=False):
+        if procedure_name in self.table.keys():
+            if self.table[procedure_name]["prototype"] == False:
+                raise Exception("Redeclaration of procedure")
 
+        self.table[procedure_name] = {
+            'type': "procedure", 
+            'prototype': prototype, 
+            'return_type': ret_type, 
+            'symbol_table':{}, 
+            'parameters':list_of_parameters
+        }
 
+    def print_table(self):
 
-		
-		
+        pp = pprint.PrettyPrinter(indent=4)
+
+        pp.pprint(self.table)
+        pass

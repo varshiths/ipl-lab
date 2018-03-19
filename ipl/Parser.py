@@ -7,6 +7,7 @@ import io
 from contextlib import redirect_stdout
 
 from .AST import ASTNode, rev_binary_ops, rev_unary_ops
+from .AST import binary_ops, unary_ops
 
 from .Sym import Sym
 
@@ -376,7 +377,7 @@ class Parser:
         declr_entity : variable
         '''
         p[0] = {}
-        p[0]["node"] = None
+        p[0]["node"] = p[1]["node"]
         p[0]["attr"] = p[1]["attr"]
         pass
 
@@ -618,14 +619,19 @@ class Parser:
                 self.rec_type_check(child, scope)
 
         elif node.label == "FUNCTION":
-            scope = children[0].children[0].label
-            for child in children[1:]:
-                self.rec_type_check(child, scope)
+            func_name = children[0].children[0].label
+            if self.symbol_table[func_name]["return_type"]["base_type"] != "void":
+                if len(children[1].children) == 0 or children[1].children[-1].label != "RETURN":
+                    raise Exception("Return statement missing")
+
+            self.rec_type_check(children[1], func_name)
 
         elif node.label == "RETURN":
             ret_type = self.rec_type_check(children[0], scope)
-            if ret_type != self.symbol_table[scope]["return_type"]:
-                message = str(ret_type) + " " + str(self.symbol_table[scope]["return_type"])
+            ret_type.pop("dnp")
+            func_name = scope
+            if ret_type != self.symbol_table[func_name]["return_type"]:
+                message = str(ret_type) + " " + str(self.symbol_table[func_name]["return_type"])
                 raise Exception("Return type mismatch: " + message)
 
         elif node.label == "BLOCK" or node.label == "EBLOCK":
@@ -642,8 +648,13 @@ class Parser:
                 message = func_name
                 raise Exception("Not a function: " + message)
 
-            plist = map(lambda x: remove_name(x), self.symbol_table[func_name]["parameters"])
             calllist = [self.rec_type_check(x, scope) for x in children[1:]]
+            for i, callparam in enumerate(calllist):
+                if callparam["dnp"]:
+                    raise Exception("Direct use of non-pointer")
+                calllist[i].pop("dnp")
+
+            plist = list(map(lambda x: remove_name(x), self.symbol_table[func_name]["parameters"]))
             result = [ plist[i] == calllist[i] for i in range(min(len(calllist), len(plist))) ]
             if (len(plist) != len(calllist)) or (False in result):
                 raise Exception("Function parameters mismatch: ")
@@ -651,26 +662,123 @@ class Parser:
             return self.symbol_table[func_name]["return_type"]
 
         elif node.label == "IF":
-            self.rec_type_check(children[0], scope)
+            ntype = self.rec_type_check(children[0], scope)
+            if ntype["base_type"] != "boolean":
+                raise Exception("Invalid control condition")
             self.rec_type_check(children[1], scope)
             self.rec_type_check(children[2], scope)
 
         elif node.label == "WHILE":
             self.rec_type_check(children[0], scope)
+            if ntype["base_type"] != "boolean":
+                raise Exception("Invalid control condition")
             self.rec_type_check(children[1], scope)
 
-        # elif node.label == "DEREF":
-        # elif node.label == "ADDR":
-        # elif node.label == "CONST":
-            
-        # elif node.label == "VAR":
-        # elif node.label == "ASGN":
+        elif node.label == "DEREF":
+            ret_type = self.rec_type_check(children[0], scope)
+            if ret_type["level"] <= 0:
+                raise Exception("Too much indirection: ")
+            ret_type["level"] -= 1
+            ret_type["dnp"] = False
+            return ret_type
 
-        pass
+        elif node.label == "ADDR":
+            ret_type = self.rec_type_check(children[0], scope)
+            ret_type["level"] += 1
+            ret_type["dnp"] = False
+            return ret_type
+
+        elif node.label == "CONST":
+            base_type = ""
+            level = 0
+
+            try:
+                int(children[0].label)
+                base_type = "int"
+            except ValueError:
+                base_type = "float"
+
+            ntype = {
+                "base_type" : base_type,
+                "level" : level,
+                "dnp" : False
+            }
+            return ntype
+
+        elif node.label == "VAR":
+            name = children[0].label
+            ntype, exists = self.symbol_table.get_entry(name, scope)
+
+            if not exists:
+                message = name
+                raise Exception("Variable doesn't exist in scope: " + message)
+
+            ntype["dnp"] = ntype["level"] == 0
+            return ntype
+
+        elif node.label == "ASGN":
+            ret_type_lop = self.rec_type_check(children[0], scope)
+            ret_type_rop = self.rec_type_check(children[1], scope)
+
+            if ret_type_lop["dnp"]:
+                raise Exception("Direct use of non-pointer")
+            if ret_type_rop["dnp"]:
+                raise Exception("Direct use of non-pointer")
+
+            if ret_type_lop != ret_type_rop:
+                raise Exception("Type mismatch for = at: ")
+
+        elif node.label in binary_ops.keys():
+            ret_type_lop = self.rec_type_check(children[0], scope)
+            ret_type_rop = self.rec_type_check(children[1], scope)
+
+            if ret_type_lop["dnp"]:
+                raise Exception("Direct use of non-pointer")
+            if ret_type_rop["dnp"]:
+                raise Exception("Direct use of non-pointer")
+
+            ntype = {
+                "dnp" : False
+            }
+
+            if node.label in ['PLUS', 'MINUS', 'MUL', 'DIV']:
+                if ret_type_lop["base_type"] == "boolean" or ret_type_lop != ret_type_rop:
+                    raise Exception("Type mismatch for "+node.label+" at: ")
+                ntype = ret_type_lop
+
+            elif node.label in ["AND", "OR"]:
+                if ret_type_lop["base_type"] != "boolean" or ret_type_lop != ret_type_rop:
+                    raise Exception("Type mismatch for "+node.label+" at: ")
+                ntype["base_type"] = "boolean"
+
+            else:
+                if ret_type_lop["base_type"] == "boolean" or ret_type_lop != ret_type_rop:
+                    raise Exception("Type mismatch for "+node.label+" at: ")
+                ntype["base_type"] = "boolean"
+            return ntype
+
+        elif node.label in unary_ops.keys():
+            ret_type = self.rec_type_check(children[0], scope)
+
+            ntype = {
+                "dnp" : False
+            }
+            
+            if node.label == "UMINUS":
+                if ret_type["base_type"] == "boolean":
+                    raise Exception("Type mismatch for - at: ")
+                ntype = ret_type
+            elif node.label == "NOT":
+                if ret_type["base_type"] != "boolean":
+                    raise Exception("Type mismatch for ! at: ")
+                ntype["base_type"] = "boolean"
+            return ntype
+
+        else:
+            raise Exception("Error in type check implementation")
 
     def type_check(self):
         self.rec_type_check(self.syntax_tree, None)
-        pass
 
     def process(self, data):
         try:
@@ -694,6 +802,6 @@ class Parser:
         except Exception as e:
             import traceback
             traceback.print_exc()
-            print(e, file=sys.stderr)
+            print("Error: " + str(e), file=sys.stderr)
 
             return "", ""
