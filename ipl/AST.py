@@ -22,8 +22,27 @@ class ASTNode:
         self.label = label
         self.children = children
 
-    def print_tree(self, ntabs=0):
-        if self.label == "VAR" or self.label == "CONST":
+    def print_tree(self, debug=False, ntabs=0):
+        if debug:
+            if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
+                print(tabs(ntabs), end='')            
+                print(self.label, "(", self.children[0].label, ")", sep='')
+            else:
+                print(tabs(ntabs), self.label, sep='')
+                print(tabs(ntabs), "(", sep='')
+
+                non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+
+                if len(non_empty_children) != 0:
+                    for i, child in enumerate(non_empty_children):
+                        if child is not None:
+                            child.print_tree(debug=True, ntabs=ntabs + 1)
+                        if i != len(non_empty_children)-1:
+                            print(tabs(ntabs+1), ",", sep='')
+                print(tabs(ntabs), ")", sep='')
+            return
+
+        if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
             print(tabs(ntabs), end='')            
             print(self.label, "(", self.children[0].label, ")", sep='')
         elif self.label == "BLOCK":

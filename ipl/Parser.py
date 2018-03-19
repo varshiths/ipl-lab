@@ -18,6 +18,7 @@ class Parser:
         self.lexer = Lexer(lexer_debug)
         self.parser = yacc.yacc(debug=parser_debug, module=self)
         self.symbol_table = Sym()
+        self.syntax_tree = None
 
     precedence = (
         ('right', 'ASSIGN'),
@@ -48,8 +49,12 @@ class Parser:
                     "global"
                     )
 
-        p[0] = self.symbol_table
-        pass
+        node = None
+        if len(p) == 2:
+            node = ASTNode("GLOBAL", p[1])
+        else:
+            node = ASTNode("GLOBAL", p[2])
+        self.syntax_tree = node
 
     def p_var_decls(self, p):
         '''
@@ -71,7 +76,11 @@ class Parser:
         proc_decls : 
                 | proc proc_decls
         '''
-        pass
+        node = []
+        if len(p) == 3:
+            node.append(p[1])
+            node.extend(p[2])
+        p[0] = node
 
     def p_proc(self, p):
         '''
@@ -93,17 +102,20 @@ class Parser:
             "level" : p[2]["attr"]["level"]
         }
         list_of_parameters = []
+        is_prototype = False
 
         if len(p) == 6:
+            is_prototype = True
             pass
         elif len(p) == 7:
+            is_prototype = True
             list_of_parameters = p[4]
         elif len(p) == 8:
             pass
         elif len(p) == 9:
             list_of_parameters = p[4]
 
-        self.symbol_table.add_procedure(procedure_name, ret_type, list_of_parameters)
+        self.symbol_table.add_procedure(procedure_name, ret_type, list_of_parameters, prototype=is_prototype)
 
         list_declrs = []
         if len(p) == 8:
@@ -113,7 +125,14 @@ class Parser:
         
         for declr in list_declrs:
             self.symbol_table.add_entry(declr, procedure_name)
-        pass
+
+        block = ASTNode("BLOCK", [])
+        if len(p) == 8:
+            block = p[6]["node"]
+        elif len(p) == 9:
+            block = p[7]["node"]
+
+        p[0] = ASTNode("FUNCTION", [ASTNode("ID", [ASTNode(procedure_name, [])]), block])
 
     def p_proc_args(self, p):
         '''
@@ -178,7 +197,6 @@ class Parser:
         list_declr :
                 | declaration SEMICOLON list_declr
         '''
-
         attr = []
         if len(p) == 4:
             attr.extend(p[1])
@@ -280,9 +298,10 @@ class Parser:
         '''
         pointer : STAR combine %prec REF
         '''
-
-        p[0] = ASTNode("DEREF", [p[2]])
-
+        node = ASTNode("DEREF", [p[2]["node"]])
+        p[0] = {
+            "node" : node
+        }
         pass
 
     def p_pointer_d(self, p):
@@ -290,8 +309,10 @@ class Parser:
         pointer_d : STAR variable %prec REF
                     | STAR pointer_d %prec REF
         '''
+        node = ASTNode("DEREF", [p[2]["node"]])
+
         p[0] = {}
-        p[0]["node"] = None
+        p[0]["node"] = node
         p[0]["attr"] = {
             "name" : p[2]["attr"]["name"], 
             "base_type" : p[2]["attr"]["base_type"], 
@@ -305,14 +326,20 @@ class Parser:
                 | pointer
                 | reference
         '''
-        p[0] = p[1]
+        node = p[1]["node"]
+        p[0] = {
+            "node" : node
+        }
         pass
 
     def p_reference(self, p):
         '''
         reference : AMP combine
         '''
-        p[0] = ASTNode("ADDR", [p[2]])
+        node = ASTNode("ADDR", [p[2]["node"]])
+        p[0] = {
+            "node" : node
+        }
         pass
 
     def p_num(self, p):
@@ -391,7 +418,7 @@ class Parser:
         '''
         assignment2 : variable ASSIGN assigned2_value
         '''
-        p[0] = ASTNode("ASGN", [p[1], p[3]])
+        p[0] = ASTNode("ASGN", [p[1]["node"], p[3]])
         pass
 
     def p_assigned2_value(self, p):
@@ -405,7 +432,7 @@ class Parser:
         '''
         assignment1 : pointer ASSIGN assigned1_value
         '''
-        p[0] = ASTNode("ASGN", [p[1], p[3]])
+        p[0] = ASTNode("ASGN", [p[1]["node"], p[3]])
         pass
 
     def p_assigned1_value(self, p):
@@ -477,7 +504,6 @@ class Parser:
     def p_expression2(self, p):
         '''
         expression2 : anfp
-
         '''
         p[0] = p[1]
         pass
@@ -487,7 +513,6 @@ class Parser:
         anfp : reference
             | pointer
             | variable
-            | rec_anfp
             | func_call
             | LPAREN anfp RPAREN
         '''
@@ -495,25 +520,54 @@ class Parser:
         if len(p) == 4:
             p[0] = p[2]
         else:
-            p[0] = p[1]
+            p[0] = p[1]["node"]
         pass
 
     def p_func_call(self, p):
         '''
         func_call : NAME LPAREN RPAREN
                 | NAME LPAREN func_args RPAREN
+        '''
 
+        node_children = [ ASTNode("ID", [ASTNode(p[1], [])]) ]
+        if len(p) == 5:
+            node_children.extend(p[3])
+        node = ASTNode("CALL", node_children)
+        p[0] = node
+        pass
+
+    def p_func_args(self, p):
+        '''
         func_args : func_arg
                     | func_arg COMMA func_args
+        '''
+        node = []
+        if len(p) == 2:
+            node.append(p[1])
+        else:
+            node.append(p[1])
+            node.extend(p[3])
+        p[0] = node
 
+    def p_func_arg_num(self, p):
+        '''
         func_arg : num
-                | declr_entity
                 | func_call
         '''
+        p[0] = p[1]
+        pass
+
+    def p_func_arg(self, p):
+        '''
+        func_arg : declr_entity
+        '''
+        p[0] = p[1]["node"]
         pass
 
     def p_rec_anfp(self, p):
         '''
+        anfp : rec_anfp
+
         rec_anfp : MINUS anfp %prec UMINUS
             | anfp PLUS anfp
             | anfp MINUS anfp
@@ -529,7 +583,9 @@ class Parser:
             | num_expr DIV anfp
         '''
 
-        if len(p) == 3:
+        if len(p) == 2:
+            p[0] = p[1]
+        elif len(p) == 3:
             p[0] = ASTNode(rev_unary_ops[p[1]], [p[2]])
         else:
             p[0] = ASTNode(rev_binary_ops[p[2]], [p[1], p[3]])
@@ -542,9 +598,15 @@ class Parser:
         else:
             raise Exception("syntax error at EOF")
 
+    def print_syntax_tree(self):
+        self.syntax_tree.print_tree(debug=True)
+
+    def print_symbol_table(self):
+        self.symbol_table.print_table()
+
     def process(self, data):
         try:
-            a = yacc.parse(data, lexer=self.lexer.lexer)
+            yacc.parse(data, lexer=self.lexer.lexer)
 
             # with io.StringIO() as buf, redirect_stdout(buf):
             #     a.print_tree()
@@ -555,7 +617,9 @@ class Parser:
             #     a.print_flow_graph()
             #     cfg = buf.getvalue()[:-1]
 
-            a.print_symbol_table()
+            self.print_syntax_tree()
+            self.print_symbol_table()
+
             return "ast", "cfg"
 
         except Exception as e:

@@ -4,6 +4,9 @@ class Sym:
 	def __init__(self):
 		self.table = {}
 
+	def __getitem__(self, item):
+         return self.table[item]
+
 	def add_entry(self, entry_attr, procedure_name):
 
 		if procedure_name == "global":
@@ -33,18 +36,20 @@ class Sym:
 			'attr': entry_attr
 		}
 
-	def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list()):
+	def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list(), prototype=False):
 		if procedure_name in self.table.keys():
-			raise Exception("Redeclaration of procedure")
+			if self.table[procedure_name]["prototype"] == False:
+				raise Exception("Redeclaration of procedure")
 
 		self.table[procedure_name] = {
 			'type': "procedure", 
+			'prototype': prototype, 
 			'return_type': ret_type, 
 			'symbol_table':{}, 
 			'parameters':list_of_parameters
 		}
 
-	def print_symbol_table(self):
+	def print_table(self):
 
 		pp = pprint.PrettyPrinter(indent=4)
 
