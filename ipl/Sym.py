@@ -1,5 +1,10 @@
 import pprint
 
+def remove_name(x):
+    p = x.copy()
+    p.pop("name")
+    return p
+
 class Sym:
     def __init__(self):
         self.table = {}
@@ -58,7 +63,22 @@ class Sym:
 
     def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list(), prototype=False):
         if procedure_name in self.table.keys():
-            if self.table[procedure_name]["prototype"] == False:
+            c_param_list = list(map( lambda x: remove_name(x), self.table[procedure_name]["parameters"][:]))
+            c_list_of_param = list(map( lambda x: remove_name(x), list_of_parameters[:]))
+
+            print(c_param_list, c_list_of_param)
+            params_eq = True
+            if len(c_param_list) != len(c_list_of_param):
+                params_eq = False
+            else:
+                for i in range(len(c_param_list)):
+                    if c_param_list[i] != c_list_of_param[i]:
+                        params_eq = False
+                        break
+
+            if self.table[procedure_name]["prototype"] == True and params_eq == True:
+                pass
+            else:
                 raise Exception("Redeclaration of procedure")
 
         self.table[procedure_name] = {

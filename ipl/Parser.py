@@ -12,8 +12,9 @@ from .AST import binary_ops, unary_ops
 from .Sym import Sym
 
 def remove_name(x):
-    x.pop("name")
-    return x
+    p = x.copy()
+    p.pop("name")
+    return p
 
 class Parser:
 
@@ -137,7 +138,7 @@ class Parser:
         elif len(p) == 9:
             block = p[7]["node"]
 
-        p[0] = ASTNode("FUNCTION", [ASTNode("ID", [ASTNode(procedure_name, [])]), block])
+        p[0] = ASTNode("FUNCTION", [ASTNode("ID", [ASTNode(procedure_name, [is_prototype])]), block])
 
     def p_proc_args(self, p):
         '''
@@ -154,16 +155,15 @@ class Parser:
 
     def p_arg(self, p):
         '''
-        arg : type declr_entity
-            | type
+        arg :  prototype_type variable
+            | prototype_type
         '''
         name = None
-        base_type = p[1]
-        level = 0
+        base_type = p[1]["base_type"]
+        level = p[1]["level"]
 
         if len(p) == 3:
             name = p[2]["attr"]["name"]
-            level = p[2]["attr"]["level"]
 
         p[0] = {
             "name" : name,
@@ -171,6 +171,16 @@ class Parser:
             "level" : level
         }
         pass
+
+    def p_prototype_type(self, p):
+        '''
+        prototype_type : type
+                    | prototype_type STAR
+        '''
+        if len(p) == 2:
+            p[0] = {"base_type": p[1], "level": 0}
+        else:
+            p[0] = {"base_type": p[1]["base_type"], "level": p[1]["level"] + 1 }
 
     def p_body(self, p):
         '''
@@ -565,6 +575,7 @@ class Parser:
     def p_func_arg(self, p):
         '''
         func_arg : declr_entity
+                | reference  
         '''
         p[0] = p[1]["node"]
         pass
@@ -620,7 +631,8 @@ class Parser:
 
         elif node.label == "FUNCTION":
             func_name = children[0].children[0].label
-            if self.symbol_table[func_name]["return_type"]["base_type"] != "void":
+            is_prototype = children[0].children[0].children[0]
+            if self.symbol_table[func_name]["return_type"]["base_type"] != "void" and not is_prototype:
                 if len(children[1].children) == 0 or children[1].children[-1].label != "RETURN":
                     raise Exception("Return statement missing")
 
