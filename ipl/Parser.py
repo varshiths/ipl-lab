@@ -543,6 +543,8 @@ class Parser:
         func_call : NAME LPAREN RPAREN
                 | NAME LPAREN func_args RPAREN
         '''
+        if p[1] not in self.symbol_table.keys() or self.symbol_table[p[1]]["type"] != 'procedure':
+            raise Exception("Procedure %s not declared" % (p[1]))
 
         node_children = [ ASTNode("ID", [ASTNode(p[1], [])]) ]
         if len(p) == 5:
