@@ -22,17 +22,19 @@ class Sym:
 
         if scope != "global":
             if entry_name in self.table[scope]["symbol_table"].keys():
-                ntype = self.table[scope]["symbol_table"][entry_name]
+                ntype = self.table[scope]["symbol_table"][entry_name].copy()
+            elif entry_name in [x["name"] for x in self.table[scope]["parameters"]]:
+                ntype = [x for x in self.table[scope]["parameters"] if x["name"] == entry_name][0].copy()
+                ntype.pop("name")
             else:
                 scope = "global"
         if scope == "global":
             if entry_name in self.table.keys():
-                ntype = self.table[entry_name]
-                ntype.pop("type")
+                ntype = self.table[entry_name].copy()
             else:
                 exists = False
 
-        return ntype.copy(), exists
+        return ntype, exists
 
     def add_entry(self, entry_attr, procedure_name):
 
