@@ -27,6 +27,12 @@ class ASTNode:
             if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
                 print(tabs(ntabs), end='')            
                 print(self.label, "(", self.children[0].label, ")", sep='')
+            elif self.label == "PARAMS":
+                print(tabs(ntabs), end='')            
+                print(self.label, sep='')
+                for child in self.children:
+                    print(tabs(ntabs + 1), end='')            
+                    print(child)
             else:
                 print(tabs(ntabs), self.label, sep='')
                 print(tabs(ntabs), "(", sep='')
@@ -40,29 +46,29 @@ class ASTNode:
                         if i != len(non_empty_children)-1:
                             print(tabs(ntabs+1), ",", sep='')
                 print(tabs(ntabs), ")", sep='')
-            return
-
-        if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
-            print(tabs(ntabs), end='')            
-            print(self.label, "(", self.children[0].label, ")", sep='')
-        elif self.label == "BLOCK":
-            for child in self.children:
-                child.print_tree(ntabs)
         else:
-            print(tabs(ntabs), self.label, sep='')
-            print(tabs(ntabs), "(", sep='')
+            # if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
+            #     print(tabs(ntabs), end='')            
+            #     print(self.label, "(", self.children[0].label, ")", sep='')
+            # elif self.label == "BLOCK":
+            #     for child in self.children:
+            #         child.print_tree(ntabs)
+            # else:
+            #     print(tabs(ntabs), self.label, sep='')
+            #     print(tabs(ntabs), "(", sep='')
 
-            non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+            #     non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
 
-            if len(non_empty_children) != 0:
-                for i, child in enumerate(non_empty_children):
-                    if child is not None:
-                        child.print_tree(ntabs + 1)
-                    if i != len(non_empty_children)-1:
-                        print(tabs(ntabs+1), ",", sep='')
-            if self.label == "WHILE" or self.label == "IF":
-                print()
-            print(tabs(ntabs), ")", sep='')
+            #     if len(non_empty_children) != 0:
+            #         for i, child in enumerate(non_empty_children):
+            #             if child is not None:
+            #                 child.print_tree(ntabs + 1)
+            #             if i != len(non_empty_children)-1:
+            #                 print(tabs(ntabs+1), ",", sep='')
+            #     if self.label == "WHILE" or self.label == "IF":
+            #         print()
+            #     print(tabs(ntabs), ")", sep='')
+            pass
 
     def statement(self):
         if self.label == "VAR" or self.label == "CONST":
@@ -117,7 +123,7 @@ class ASTNode:
 
 
 
-    def control_flow_graph_node(node):
+    def node_generate_graph(node):
 
         if node is not None:
             if node.label == "BLOCK" or node.label == "EBLOCK":
@@ -138,7 +144,7 @@ class ASTNode:
                                 else:
                                     ASTNode.blocks[curr_block].append(curr_block+1)
 
-                                block_list = ASTNode.control_flow_graph_node(child)
+                                block_list = ASTNode.node_generate_graph(child)
 
                                 if i == len(node.children)-1:
                                     return block_list
@@ -156,9 +162,9 @@ class ASTNode:
 
                 cond_list = node.children[0].statement()
                 true_blk = curr_block + 1
-                a = ASTNode.control_flow_graph_node(node.children[1])
+                a = ASTNode.node_generate_graph(node.children[1])
                 false_blk = len(ASTNode.blocks.keys())
-                b = ASTNode.control_flow_graph_node(node.children[2])
+                b = ASTNode.node_generate_graph(node.children[2])
 
                 ASTNode.blocks[curr_block] = ["if"]
                 ASTNode.blocks[curr_block].extend(cond_list[:-1])
@@ -185,7 +191,7 @@ class ASTNode:
 
                 cond_list = node.children[0].statement()
                 true_blk = curr_block + 1
-                a = ASTNode.control_flow_graph_node(node.children[1])
+                a = ASTNode.node_generate_graph(node.children[1])
 
                 ASTNode.blocks[curr_block] = ["if"]
                 ASTNode.blocks[curr_block].extend(cond_list[:-1])
@@ -201,10 +207,10 @@ class ASTNode:
                 return [curr_block]
 
 
-    def generate_flow_graph(self):
+    def generate_graph(self):
         ASTNode.blocks[0] = [None]
 
-        end_list = ASTNode.control_flow_graph_node(self)
+        end_list = ASTNode.node_generate_graph(self)
 
         last_blk_id = len(ASTNode.blocks.keys())
         for blk in end_list:
@@ -212,7 +218,7 @@ class ASTNode:
 
         ASTNode.blocks[last_blk_id] = [-1]
 
-    def print_flow_graph(self):
+    def print_graph(self):
 
         flow = ASTNode.blocks
         print()

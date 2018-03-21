@@ -1,9 +1,5 @@
 import pprint
-
-def remove_name(x):
-    p = x.copy()
-    p.pop("name")
-    return p
+from collections import OrderedDict
 
 class Sym:
     def __init__(self):
@@ -23,11 +19,13 @@ class Sym:
         if scope != "global":
             if entry_name in self.table[scope]["symbol_table"].keys():
                 ntype = self.table[scope]["symbol_table"][entry_name].copy()
-            elif entry_name in [x["name"] for x in self.table[scope]["parameters"]]:
-                ntype = [x for x in self.table[scope]["parameters"] if x["name"] == entry_name][0].copy()
-                ntype.pop("name")
+
+            elif entry_name in self.table[scope]["parameters"].keys():
+                ntype = self.table[scope]["parameters"][entry_name].copy()
+
             else:
                 scope = "global"
+                
         if scope == "global":
             if entry_name in self.table.keys():
                 ntype = self.table[entry_name].copy()
@@ -65,20 +63,29 @@ class Sym:
         self.table[entry_name]["type"] = "variable"
 
     def add_procedure(self, procedure_name, ret_type=None, list_of_parameters=list(), prototype=False):
-        if procedure_name in self.table.keys():
-            c_param_list = list(map( lambda x: remove_name(x), self.table[procedure_name]["parameters"][:]))
-            c_list_of_param = list(map( lambda x: remove_name(x), list_of_parameters[:]))
+        dict_parameters = OrderedDict()
 
-            params_eq = True
-            if len(c_param_list) != len(c_list_of_param):
-                params_eq = False
+        for param in list_of_parameters:
+            param_name = param["name"]
+            
+            if param_name in dict_parameters.keys():
+                raise Exception("Duplicate parameter name")                
             else:
-                for i in range(len(c_param_list)):
-                    if c_param_list[i] != c_list_of_param[i]:
-                        params_eq = False
-                        break
+                param_dict = {
+                    "base_type" : param["base_type"],
+                    "level" : param["level"]
+                }
+                dict_parameters[param_name] = param_dict
 
-            if self.table[procedure_name]["prototype"] == True and params_eq == True:
+        if procedure_name in self.table.keys():
+
+            dict_parameters_old = self.table[procedure_name]["parameters"].copy()
+
+
+            if  self.table[procedure_name]["prototype"] == True and \
+                list(dict_parameters.values()) == list(dict_parameters_old.values()) and \
+                self.table[procedure_name]["return_type"] == ret_type and \
+                not prototype:
                 pass
             else:
                 raise Exception("Redeclaration of procedure")
@@ -87,8 +94,8 @@ class Sym:
             'type': "procedure", 
             'prototype': prototype, 
             'return_type': ret_type, 
-            'symbol_table':{}, 
-            'parameters':list_of_parameters
+            'symbol_table': {}, 
+            'parameters': dict_parameters
         }
 
     def print_table(self):

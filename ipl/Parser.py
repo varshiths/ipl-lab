@@ -11,11 +11,6 @@ from .AST import binary_ops, unary_ops
 
 from .Sym import Sym
 
-def remove_name(x):
-    p = x.copy()
-    p.pop("name")
-    return p
-
 class Parser:
 
     tokens = Lexer.tokens
@@ -118,13 +113,16 @@ class Parser:
         for declr in list_declrs:
             self.symbol_table.add_entry(declr, procedure_name)
 
-        block = ASTNode("BLOCK", [])
-        if len(p) == 8:
-            block = p[6]["node"]
-        elif len(p) == 9:
-            block = p[7]["node"]
+        id_node = ASTNode("ID", [ASTNode(procedure_name, [is_prototype])])
+        params_node = ASTNode("PARAMS", list_of_parameters)
 
-        p[0] = ASTNode("FUNCTION", [ASTNode("ID", [ASTNode(procedure_name, [is_prototype])]), block])
+        block_node = ASTNode("BLOCK", [])
+        if len(p) == 8:
+            block_node = p[6]["node"]
+        elif len(p) == 9:
+            block_node = p[7]["node"]
+
+        p[0] = ASTNode("FUNCTION", [id_node, block_node, params_node])
 
     def p_proc_args(self, p):
         '''
@@ -608,12 +606,6 @@ class Parser:
         else:
             raise Exception("syntax error at EOF")
 
-    def print_syntax_tree(self):
-        self.syntax_tree.print_tree(debug=True)
-
-    def print_symbol_table(self):
-        self.symbol_table.print_table()
-
     def rec_type_check(self, node, scope):
 
         children = node.children
@@ -660,9 +652,9 @@ class Parser:
                     raise Exception("Direct use of non-pointer")
                 calllist[i].pop("dnp")
 
-            plist = list(map(lambda x: remove_name(x), self.symbol_table[func_name]["parameters"]))
-            result = [ plist[i] == calllist[i] for i in range(min(len(calllist), len(plist))) ]
-            if (len(plist) != len(calllist)) or (False in result):
+            plist = list(self.symbol_table[func_name]["parameters"].values())
+
+            if plist != calllist:
                 raise Exception("Function parameters mismatch: ")
 
             ntype = self.symbol_table[func_name]["return_type"].copy()
@@ -779,25 +771,40 @@ class Parser:
                 ntype["base_type"] = "boolean"
             return ntype
 
+        elif node.label == "PARAMS":
+            pass
+
         else:
             raise Exception("Error in type check implementation")
 
     def type_check(self):
         self.rec_type_check(self.syntax_tree, None)
 
+    def print_syntax_tree(self):
+        self.syntax_tree.print_tree(debug=True)
+
+    def generate_control_flow_graph(self):
+        self.syntax_tree.generate_graph()
+
+    def print_control_flow_graph(self):
+        self.syntax_tree.print_graph()
+
+    def print_symbol_table(self):
+        self.symbol_table.print_table()
+
     def process(self, data):
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
 
             self.type_check()
+            # self.generate_control_flow_graph()
 
             with io.StringIO() as buf, redirect_stdout(buf):
                 self.print_syntax_tree()
                 ast = buf.getvalue()
 
-            # a.generate_flow_graph()
             # with io.StringIO() as buf, redirect_stdout(buf):
-            #     a.print_flow_graph()
+            #     self.print_control_flow_graph()
             #     cfg = buf.getvalue()[:-1]
 
             with io.StringIO() as buf, redirect_stdout(buf):
