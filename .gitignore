@@ -8,6 +8,7 @@ ipl/parsetab.py
 *.out
 test
 *.txt
+*.sym
 *.cfg
 *.ast
 *.stdout

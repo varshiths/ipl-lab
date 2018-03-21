@@ -31,6 +31,7 @@ class Sym:
         if scope == "global":
             if entry_name in self.table.keys():
                 ntype = self.table[entry_name].copy()
+                ntype.pop("type")
             else:
                 exists = False
 
@@ -68,7 +69,6 @@ class Sym:
             c_param_list = list(map( lambda x: remove_name(x), self.table[procedure_name]["parameters"][:]))
             c_list_of_param = list(map( lambda x: remove_name(x), list_of_parameters[:]))
 
-            print(c_param_list, c_list_of_param)
             params_eq = True
             if len(c_param_list) != len(c_list_of_param):
                 params_eq = False

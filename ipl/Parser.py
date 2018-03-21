@@ -44,49 +44,35 @@ class Parser:
 
     def p_prog(self, p):
         '''
-        prog : var_decls proc_decls
-            | proc_decls
-
+        prog : entity
         '''
-        if len(p) == 3:
-            for entity in p[1]:
-                self.symbol_table.add_entry(
-                    entity,
-                    "global"
-                    )
+        self.syntax_tree = ASTNode("GLOBAL", p[1])
+        pass
 
-        node = None
-        if len(p) == 2:
-            node = ASTNode("GLOBAL", p[1])
-        else:
-            node = ASTNode("GLOBAL", p[2])
-        self.syntax_tree = node
+    def p_entity(self, p):
+        '''
+        entity : 
+            | var_declr entity
+            | proc entity 
+        '''
+        ret_list = []
+        if len(p) != 1:
+            if p[1] is not None:
+                ret_list.append(p[1])
+            ret_list.extend(p[2])
+        p[0] = ret_list
 
     def p_var_decls(self, p):
         '''
-        var_decls : declaration SEMICOLON
-                    | var_decls declaration SEMICOLON
+        var_declr : declaration SEMICOLON
         '''
-                    # | declaration SEMICOLON var_decls 
-        p[0] = []
-        if len(p) == 3:
-            p[0].extend(p[1])
-        else:
-            p[0].extend(p[1]) 
-            p[0].extend(p[2]) 
-            # p[0].extend(p[3]) 
+        for entity in p[1]:
+            self.symbol_table.add_entry(
+                entity,
+                "global"
+                )
+        p[0] = None
         pass
-
-    def p_proc_decls(self, p):
-        '''
-        proc_decls : 
-                | proc proc_decls
-        '''
-        node = []
-        if len(p) == 3:
-            node.append(p[1])
-            node.extend(p[2])
-        p[0] = node
 
     def p_proc(self, p):
         '''
@@ -679,19 +665,17 @@ class Parser:
             if (len(plist) != len(calllist)) or (False in result):
                 raise Exception("Function parameters mismatch: ")
 
-            return self.symbol_table[func_name]["return_type"]
+            ntype = self.symbol_table[func_name]["return_type"].copy()
+            ntype["dnp"] = False
+            return ntype
 
         elif node.label == "IF":
-            ntype = self.rec_type_check(children[0], scope)
-            if ntype["base_type"] != "boolean":
-                raise Exception("Invalid control condition")
+            self.rec_type_check(children[0], scope)
             self.rec_type_check(children[1], scope)
             self.rec_type_check(children[2], scope)
 
         elif node.label == "WHILE":
             self.rec_type_check(children[0], scope)
-            if ntype["base_type"] != "boolean":
-                raise Exception("Invalid control condition")
             self.rec_type_check(children[1], scope)
 
         elif node.label == "DEREF":
@@ -764,7 +748,8 @@ class Parser:
             if node.label in ['PLUS', 'MINUS', 'MUL', 'DIV']:
                 if ret_type_lop["base_type"] == "boolean" or ret_type_lop != ret_type_rop:
                     raise Exception("Type mismatch for "+node.label+" at: ")
-                ntype = ret_type_lop
+                ntype["base_type"] = ret_type_lop["base_type"]
+                ntype["level"] = ret_type_lop["level"]
 
             elif node.label in ["AND", "OR"]:
                 if ret_type_lop["base_type"] != "boolean" or ret_type_lop != ret_type_rop:
