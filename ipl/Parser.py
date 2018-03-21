@@ -528,15 +528,21 @@ class Parser:
         anfp : reference
             | pointer
             | variable
-            | func_call
-            | LPAREN anfp RPAREN
         '''
+        p[0] = p[1]["node"]
+        pass
+        
+    def p_anfp1(self, p):
+        '''
+        anfp : func_call
+            | LPAREN anfp RPAREN
 
+        '''
         if len(p) == 4:
             p[0] = p[2]
         else:
-            p[0] = p[1]["node"]
-        pass
+            p[0] = p[1]
+
 
     def p_func_call(self, p):
         '''
