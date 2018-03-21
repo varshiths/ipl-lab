@@ -798,24 +798,26 @@ class Parser:
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
 
-            # with io.StringIO() as buf, redirect_stdout(buf):
-            #     a.print_tree()
-            #     ast = buf.getvalue()
+            self.type_check()
+
+            with io.StringIO() as buf, redirect_stdout(buf):
+                self.print_syntax_tree()
+                ast = buf.getvalue()
 
             # a.generate_flow_graph()
             # with io.StringIO() as buf, redirect_stdout(buf):
             #     a.print_flow_graph()
             #     cfg = buf.getvalue()[:-1]
 
-            self.print_syntax_tree()
-            self.print_symbol_table()
-            self.type_check()
+            with io.StringIO() as buf, redirect_stdout(buf):
+                self.print_symbol_table()
+                sym = buf.getvalue()
 
-            return "ast", "cfg"
+            return ast, "", sym
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             print("Error: " + str(e), file=sys.stderr)
 
-            return "", ""
+            return "", "", ""
