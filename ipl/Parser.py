@@ -168,16 +168,9 @@ class Parser:
 
     def p_body(self, p):
         '''
-        body : list_declr list_stat ret_stmt
-                | list_declr list_stat
+        body : list_declr list_stat
         '''
-        node = None
-        if len(p) == 3:
-            node = p[2]
-        else:
-            p[2].children.append(p[3])
-            node = p[2]
-
+        node = p[2]
         attr = p[1]
 
         p[0] = {
@@ -187,9 +180,13 @@ class Parser:
 
     def p_ret_stmt(self, p):
         '''
-        ret_stmt : RETURN expression SEMICOLON
+        ret_stmt : RETURN SEMICOLON
+                | RETURN expression SEMICOLON
         '''
-        p[0] = ASTNode("RETURN", [p[2]])
+        if len(p) == 4:
+            p[0] = ASTNode("RETURN", [p[2]])
+        else:
+            p[0] = ASTNode("RETURN", [])
 
     def p_list_declr(self, p):
         '''
@@ -221,7 +218,9 @@ class Parser:
 
         other :  assignment SEMICOLON
                 | func_call SEMICOLON
+                | deref_func_call SEMICOLON
                 | while
+                | ret_stmt
         '''
         p[0] = p[1]
         pass
@@ -333,7 +332,7 @@ class Parser:
 
     def p_reference(self, p):
         '''
-        reference : AMP combine
+        reference : AMP variable
         '''
         node = ASTNode("ADDR", [p[2]["node"]])
         p[0] = {
@@ -397,7 +396,8 @@ class Parser:
 
     def p_declaration(self, p):
         '''
-        declaration : type list_var
+        declaration : INT list_var %prec TYPE
+                    | FLOAT list_var %prec TYPE
         '''
         p[0] = []
         for entity in p[2]:
@@ -515,18 +515,26 @@ class Parser:
         '''
         p[0] = p[1]["node"]
         pass
-        
+
     def p_anfp1(self, p):
         '''
         anfp : func_call
+            | deref_func_call
             | LPAREN anfp RPAREN
-
         '''
-        if len(p) == 4:
-            p[0] = p[2]
-        else:
+        if len(p) == 2:
             p[0] = p[1]
+        else:
+            p[0] = p[2]
+        pass
 
+    def p_deref_func_call(self, p):
+        '''
+        deref_func_call : STAR deref_func_call
+                        | STAR func_call
+        '''
+        p[0] = ASTNode("DEREF", [p[2]])
+        pass
 
     def p_func_call(self, p):
         '''
@@ -618,16 +626,23 @@ class Parser:
         elif node.label == "FUNCTION":
             func_name = children[0].children[0].label
             is_prototype = children[0].children[0].children[0]
-            if self.symbol_table[func_name]["return_type"]["base_type"] != "void" and not is_prototype:
-                if len(children[1].children) == 0 or children[1].children[-1].label != "RETURN":
-                    raise Exception("Return statement missing")
+
+            if  self.symbol_table[func_name]["return_type"]["base_type"] == "void" \
+                and self.symbol_table[func_name]["return_type"]["level"] != 0:
+                raise Exception("Invalid return type")
 
             self.rec_type_check(children[1], func_name)
 
         elif node.label == "RETURN":
-            ret_type = self.rec_type_check(children[0], scope)
-            ret_type.pop("dnp")
-            func_name = scope
+
+            ret_type = {
+                "base_type" : "void",
+                "level" : 0
+            }
+            if len(children != 0):
+                ret_type = self.rec_type_check(children[0], scope)
+                ret_type.pop("dnp")
+                func_name = scope
             if ret_type != self.symbol_table[func_name]["return_type"]:
                 message = str(ret_type) + " " + str(self.symbol_table[func_name]["return_type"])
                 raise Exception("Return type mismatch: " + message)
