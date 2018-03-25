@@ -46,6 +46,8 @@ class Sym:
 
         if procedure_name not in self.table.keys():
             raise Exception("Procedure_name does not exist")
+        if entry_name == procedure_name:
+            raise Exception("Reuse of function name")
         if entry_name in self.table[procedure_name]['symbol_table'].keys():
             raise Exception("Redeclaration of variable")
         if entry_attr["base_type"] == "void" and entry_attr["level"] == 0:
