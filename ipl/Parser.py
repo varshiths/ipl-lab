@@ -801,26 +801,29 @@ class Parser:
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
 
+            ast, cfg, sym = "", "", ""
+
             self.type_check()
-            # self.generate_control_flow_graph()
 
             with io.StringIO() as buf, redirect_stdout(buf):
                 self.print_syntax_tree()
                 ast = buf.getvalue()
 
-            # with io.StringIO() as buf, redirect_stdout(buf):
-            #     self.print_control_flow_graph()
-            #     cfg = buf.getvalue()[:-1]
+            self.generate_control_flow_graph()
+
+            with io.StringIO() as buf, redirect_stdout(buf):
+                self.print_control_flow_graph()
+                cfg = buf.getvalue()
 
             with io.StringIO() as buf, redirect_stdout(buf):
                 self.print_symbol_table()
                 sym = buf.getvalue()
 
-            return ast, "", sym
+            return ast, cfg, sym
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             print("Error: " + str(e), file=sys.stderr)
 
-            return "", "", ""
+            return ast, cfg, sym

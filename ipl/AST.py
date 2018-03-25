@@ -15,6 +15,7 @@ def tabs(n):
 
 class ASTNode:
 
+    functions = {}
     blocks = {}
     conditions = {}
 
@@ -121,12 +122,32 @@ class ASTNode:
 
             return ret_list
 
+        elif self.label == "CALL":
 
+            func_name = self.children[0].children[0].label
+            args_list = [ child.statement() for child in self.children[1:] ]
+            
+            args_temps = []
+            for arg in args_list:
+                args_temps.append(arg[-1])
+                arg = arg[:-1]
+
+            curr_cond = len(ASTNode.conditions.keys())
+            ASTNode.conditions[curr_cond] = "t%d = %s(%s)" % ( curr_cond, func_name, str(",".join(args_temps)))
+
+            ret_list = [ stats for stats in arg for arg in args_list ]
+            ret_list.append(ASTNode.conditions[curr_cond])
+            ret_list.append("t%d" % curr_cond)
+
+            return ret_list
 
     def node_generate_graph(node):
 
+        print(node.label)
+        print()
+
         if node is not None:
-            if node.label == "BLOCK" or node.label == "EBLOCK":
+            if node.label == "BLOCK" or node.label == "EBLOCK" or node.label == "GLOBAL":
                 if len(node.children) == 0:
                     return []
                 else:
@@ -134,11 +155,16 @@ class ASTNode:
                     ASTNode.blocks[curr_block] = []
                     for i, child in enumerate(node.children):
                         if child is not None:
-                            if child.label != "IF" and child.label != "WHILE":
+                            if  child.label != "IF" \
+                                and child.label != "WHILE" \
+                                and child.label != "FUNCTION" \
+                                and child.label != "RETURN":
+
                                 ASTNode.blocks[curr_block].extend(child.statement())
                                 if i == len(node.children)-1:
                                     return [curr_block]
                             else:
+
                                 if len(ASTNode.blocks[curr_block]) == 0:
                                     del ASTNode.blocks[curr_block]
                                 else:
@@ -206,9 +232,34 @@ class ASTNode:
 
                 return [curr_block]
 
+            elif node.label == "FUNCTION":
+                procedure_name = node.children[0].children[0].label
+                is_prototype = node.children[0].children[0].children[0]
+
+                if not is_prototype:
+                    curr_block = len(ASTNode.blocks.keys())
+                    ASTNode.functions[curr_block] = procedure_name
+
+                ASTNode.node_generate_graph(node.children[1])
+
+                # adda return statemennt if it isn't there
+
+                return []
+
+            elif node.label == "RETURN":
+                curr_block = len(ASTNode.blocks.keys())
+                ASTNode.blocks[curr_block] = ["return"]
+
+                if len(node.children) == 1:
+                    statements = node.children[0].statement()
+
+                    statements[-1] = "return " + statements[-1]
+                    ASTNode.blocks[curr_block].extend(statements)
+
+                return []
+
 
     def generate_graph(self):
-        ASTNode.blocks[0] = [None]
 
         end_list = ASTNode.node_generate_graph(self)
 
@@ -223,29 +274,32 @@ class ASTNode:
         flow = ASTNode.blocks
         print()
 
-        for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
-            print("<bb %d>" % key)
-            if value[0] == "if":
+        print(flow)
+        print(ASTNode.functions)
 
-                for stat in value[1:-3]:
-                    print(stat)
-                print("%s goto %s" % (value[-3], get_block_str(value[-2])))
-                print("else goto %s" % (get_block_str(value[-1])))
+        # for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
+        #     print("<bb %d>" % key)
+        #     if value[0] == "if":
 
-            else:
-                for statement in value[:-1]:
-                    print(statement)
-                next_block_num = get_block_str(value[-1])
-                if next_block_num != "End":
-                    print("goto %s" % (next_block_num))
-                else:
-                    print(next_block_num)
+        #         for stat in value[1:-3]:
+        #             print(stat)
+        #         print("%s goto %s" % (value[-3], get_block_str(value[-2])))
+        #         print("else goto %s" % (get_block_str(value[-1])))
 
-            print()
+        #     else:
+        #         for statement in value[:-1]:
+        #             print(statement)
+        #         next_block_num = get_block_str(value[-1])
+        #         if next_block_num != "End":
+        #             print("goto %s" % (next_block_num))
+        #         else:
+        #             print(next_block_num)
+
+        #     print()
             
 def get_block_str(block_id):
     if block_id != -1:
-        ret_str = "<bb %d>" % block_id
+        ret_str = "<bb %s>" % str(block_id)
     else:
         ret_str = "End"
     return ret_str
