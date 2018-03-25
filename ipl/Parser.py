@@ -48,7 +48,7 @@ class Parser:
         '''
         entity : 
             | var_declr entity
-            | proc entity 
+            | proc entity
         '''
         ret_list = []
         if len(p) != 1:
@@ -69,19 +69,13 @@ class Parser:
         p[0] = None
         pass
 
-    def p_proc(self, p):
+    def p_proc_header(self, p):
         '''
-        proc : type variable LPAREN RPAREN SEMICOLON
-            | type pointer_d LPAREN RPAREN SEMICOLON
+        proc_header : type variable LPAREN proc_args RPAREN
+            | type pointer_d LPAREN proc_args RPAREN
 
-            | type variable LPAREN proc_args RPAREN SEMICOLON
-            | type pointer_d LPAREN proc_args RPAREN SEMICOLON
-
-            | type variable LPAREN RPAREN LBRACE body RBRACE
-            | type pointer_d LPAREN RPAREN LBRACE body RBRACE
-
-            | type variable LPAREN proc_args RPAREN LBRACE body RBRACE
-            | type pointer_d LPAREN proc_args RPAREN LBRACE body RBRACE
+            | type variable LPAREN RPAREN 
+            | type pointer_d LPAREN RPAREN
         '''
         procedure_name = p[2]["attr"]["name"]
         ret_type = {
@@ -89,27 +83,33 @@ class Parser:
             "level" : p[2]["attr"]["level"]
         }
         list_of_parameters = []
+
+        if len(p) == 5:
+            pass
+        elif len(p) == 6:
+            list_of_parameters = p[4]
+
+        self.symbol_table.add_procedure(procedure_name, ret_type, list_of_parameters, prototype=False)
+
+        p[0] = [ procedure_name, list_of_parameters ]
+
+    def p_proc(self, p):
+        '''
+        proc : proc_header SEMICOLON
+            | proc_header LBRACE body RBRACE
+        '''
+        procedure_name, list_of_parameters = p[1][0], p[1][1]
+
         is_prototype = False
-
-        if len(p) == 6:
+        if len(p) == 3:
             is_prototype = True
-            pass
-        elif len(p) == 7:
-            is_prototype = True
-            list_of_parameters = p[4]
-        elif len(p) == 8:
-            pass
-        elif len(p) == 9:
-            list_of_parameters = p[4]
-
-        self.symbol_table.add_procedure(procedure_name, ret_type, list_of_parameters, prototype=is_prototype)
+            
+        self.symbol_table.update_prototype_nature(procedure_name, prototype=is_prototype)
 
         list_declrs = []
-        if len(p) == 8:
-            list_declrs = p[6]["attr"]
-        elif len(p) == 9:
-            list_declrs = p[7]["attr"]
-        
+        if len(p) == 5:
+            list_declrs = p[3]["attr"]
+
         for declr in list_declrs:
             self.symbol_table.add_entry(declr, procedure_name)
 
@@ -117,10 +117,8 @@ class Parser:
         params_node = ASTNode("PARAMS", list_of_parameters)
 
         block_node = ASTNode("BLOCK", [])
-        if len(p) == 8:
-            block_node = p[6]["node"]
-        elif len(p) == 9:
-            block_node = p[7]["node"]
+        if len(p) == 5:
+            block_node = p[3]["node"]
 
         p[0] = ASTNode("FUNCTION", [id_node, block_node, params_node])
 
@@ -396,9 +394,10 @@ class Parser:
 
     def p_declaration(self, p):
         '''
-        declaration : INT list_var %prec TYPE
-                    | FLOAT list_var %prec TYPE
+        declaration : type list_var
         '''
+        # declaration : INT list_var %prec TYPE
+        #             | FLOAT list_var %prec TYPE
         p[0] = []
         for entity in p[2]:
             entity["base_type"] = p[1]
@@ -566,18 +565,9 @@ class Parser:
 
     def p_func_arg_num(self, p):
         '''
-        func_arg : num
-                | func_call
+        func_arg : expression
         '''
         p[0] = p[1]
-        pass
-
-    def p_func_arg(self, p):
-        '''
-        func_arg : declr_entity
-                | reference  
-        '''
-        p[0] = p[1]["node"]
         pass
 
     def p_rec_anfp(self, p):
@@ -639,7 +629,7 @@ class Parser:
                 "base_type" : "void",
                 "level" : 0
             }
-            if len(children != 0):
+            if len(children) != 0:
                 ret_type = self.rec_type_check(children[0], scope)
                 ret_type.pop("dnp")
                 func_name = scope

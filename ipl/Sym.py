@@ -48,6 +48,8 @@ class Sym:
             raise Exception("Procedure_name does not exist")
         if entry_name in self.table[procedure_name]['symbol_table'].keys():
             raise Exception("Redeclaration of variable")
+        if entry_attr["base_type"] == "void" and entry_attr["level"] == 0:
+            raise Exception("Declaration of variable as void")
 
         self.table[procedure_name]['symbol_table'][entry_name] = entry_attr
 
@@ -58,6 +60,8 @@ class Sym:
 
         if entry_name in self.table.keys():
             raise Exception("Redeclaration of global entity")
+        if entry_attr["base_type"] == "void" and entry_attr["level"] == 0:
+            raise Exception("Declaration of variable as void")
 
         self.table[entry_name] = entry_attr
         self.table[entry_name]["type"] = "variable"
@@ -97,6 +101,9 @@ class Sym:
             'symbol_table': {}, 
             'parameters': dict_parameters
         }
+
+    def update_prototype_nature(self, procedure_name, prototype):
+        self.table[procedure_name]["prototype"] = prototype
 
     def print_table(self):
 
