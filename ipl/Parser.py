@@ -632,7 +632,7 @@ class Parser:
             if len(children) != 0:
                 ret_type = self.rec_type_check(children[0], scope)
                 ret_type.pop("dnp")
-                func_name = scope
+            func_name = scope
             if ret_type != self.symbol_table[func_name]["return_type"]:
                 message = str(ret_type) + " " + str(self.symbol_table[func_name]["return_type"])
                 raise Exception("Return type mismatch: " + message)
