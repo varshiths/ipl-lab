@@ -240,9 +240,14 @@ class ASTNode:
                     curr_block = len(ASTNode.blocks.keys())
                     ASTNode.functions[curr_block] = procedure_name
 
+                body = node.children[1]
+                if body[-1].label != "RETURN":
+                    node.children[1].append(ASTNode("RETURN", []))
+
                 ASTNode.node_generate_graph(node.children[1])
 
                 # adda return statemennt if it isn't there
+                
 
                 return []
 

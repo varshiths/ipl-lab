@@ -621,6 +621,23 @@ class Parser:
                 and self.symbol_table[func_name]["return_type"]["level"] != 0:
                 raise Exception("Invalid return type")
 
+            if  self.symbol_table[func_name]["return_type"]["base_type"] != "void" \
+                and not is_prototype \
+                and \
+                ( \
+                    ( \
+                        len(children[1].children) == 0 \
+                    ) \
+                    or \
+                    ( \
+                        len(children[1].children) > 0 \
+                        and \
+                        children[1].children[-1].label != "RETURN" \
+                    ) \
+                ) \
+                    :
+                raise Exception("No return statement")
+
             self.rec_type_check(children[1], func_name)
 
         elif node.label == "RETURN":
@@ -796,7 +813,7 @@ class Parser:
 
     def print_symbol_table(self):
         self.symbol_table.print_table()
-        
+
     def process(self, data):
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
