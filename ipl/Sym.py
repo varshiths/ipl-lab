@@ -111,5 +111,42 @@ class Sym:
 
         pp = pprint.PrettyPrinter(indent=4)
 
-        pp.pprint(self.table)
+        #pp.pprint(self.table)
+        self.print_table_formatted()
         pass
+
+    def get_type_string(self, type_attr):
+        return type_attr["base_type"] + "*"*type_attr["level"]
+
+    def print_table_formatted(self):
+        separator = "-----------------------------------------------------------------"
+        print("Procedure table :-")
+        print(separator)
+        print("%s \t\t | %s \t\t | %s \t\t " % ("Name", "Return Type", "Parameter List"))
+        print(separator)
+        for key, val in self.table.items():
+            if val["type"] == "procedure":
+                parameter_types = OrderedDict((k, self.get_type_string(v)) for k, v in val["parameters"].items())
+                #print(l)
+                print("%s \t\t | %s \t\t | %s \t\t " % (key, self.get_type_string(val["return_type"]), parameter_types))
+
+        print(separator)
+        print("Variable table :-")
+        print(separator)
+        print("%s \t\t | %s \t\t | %s \t\t | %s \t\t " %("Name", "Scope", "Base Type", "Derived Type"))
+        print(separator)
+        for key, val in self.table.items():
+            #print("val", val)
+            if val["type"] == "variable":
+                print("%s \t\t | %s \t\t | %s \t\t | %s \t\t " %(key, "global", val["base_type"], "*"*val["level"]))
+            else:
+                for key1, val1 in val["symbol_table"].items():
+                    print("%s \t\t | %s \t\t | %s \t\t | %s \t\t " %(key1, "procedure " + key, val1["base_type"], "*"*val1["level"]))
+                    pass
+        print(separator)
+
+
+
+
+
+

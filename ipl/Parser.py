@@ -796,7 +796,7 @@ class Parser:
 
     def print_symbol_table(self):
         self.symbol_table.print_table()
-
+        
     def process(self, data):
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
