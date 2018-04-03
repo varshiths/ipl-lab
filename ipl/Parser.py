@@ -813,10 +813,10 @@ class Parser:
         self.rec_type_check(self.syntax_tree, None)
 
     def print_syntax_tree(self):
-        self.syntax_tree.print_tree(debug=True)
+        self.syntax_tree.print_tree()
 
     def generate_control_flow_graph(self):
-        self.syntax_tree.generate_graph(self.symbol_table)
+        self.syntax_tree.generate_graph()
 
     def print_control_flow_graph(self):
         self.syntax_tree.print_graph()
@@ -827,6 +827,7 @@ class Parser:
     def process(self, data):
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
+            self.syntax_tree.set_symbol_table(self.symbol_table)
 
             ast, cfg, sym = "", "", ""
 

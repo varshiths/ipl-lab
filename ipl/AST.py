@@ -23,53 +23,125 @@ class ASTNode:
         self.label = label
         self.children = children
 
+    def set_symbol_table(self, symbol_table):
+        self.symbol_table = symbol_table
+        for child in self.children:
+            if isinstance(child, ASTNode):
+                child.set_symbol_table(symbol_table)
+
     def print_tree(self, debug=False, ntabs=0):
-        if debug:
-            if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
-                print(tabs(ntabs), end='')            
-                print(self.label, "(", self.children[0].label, ")", sep='')
-            elif self.label == "PARAMS":
-                print(tabs(ntabs), end='')            
-                print(self.label, sep='')
-                for child in self.children:
-                    print(tabs(ntabs + 1), end='')            
-                    print(child)
+
+        if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
+            print(tabs(ntabs), end='')            
+            print(self.label, "(", self.children[0].label, ")", sep='')
+        elif self.label == "BLOCK" or self.label == "GLOBAL":
+            for child in self.children:
+                child.print_tree(debug=False, ntabs=ntabs)
+        elif self.label == "FUNCTION":
+
+            print()
+
+            func_name = self.children[0].children[0].label
+            is_prototype = self.children[0].children[0].children[0]
+            parameters = [ (get_type_str(y), x) for x, y in list(self.symbol_table[func_name]["parameters"].items())]
+            return_type = self.symbol_table[func_name]["return_type"]
+
+            if is_prototype:
+                return
+
+            if func_name == "main":
+                print("Function Main")
             else:
-                print(tabs(ntabs), self.label, sep='')
-                print(tabs(ntabs), "(", sep='')
+                print("FUNCTION %s" % (func_name))
+            print("PARAMS (%s)" % (", ".join([x + " " + y for x, y in parameters])))
+            print("RETURNS %s" % (get_type_str(return_type, rev=True)))
 
-                non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+            func_block = self.children[1]
+            for child in func_block.children[:-1]:
+                child.print_tree(debug=False, ntabs=ntabs+1)
+            func_block.children[-1].print_tree(debug=False, ntabs=ntabs)
+            print()
 
-                if len(non_empty_children) != 0:
-                    for i, child in enumerate(non_empty_children):
-                        if child is not None:
-                            child.print_tree(debug=True, ntabs=ntabs + 1)
-                        if i != len(non_empty_children)-1:
-                            print(tabs(ntabs+1), ",", sep='')
-                print(tabs(ntabs), ")", sep='')
+        elif self.label == "CALL":
+
+            func_name = self.children[0].children[0].label
+            print(tabs(ntabs), "%s %s(" % (self.label, func_name), sep='')
+
+            non_empty_children = self.children[1:]
+
+            for i, child in enumerate(non_empty_children):
+                child.print_tree(debug=False, ntabs=ntabs + 1)
+                if i != len(non_empty_children)-1:
+                    print(tabs(ntabs+1), ",", sep='')
+            print(tabs(ntabs), ")", sep='')
+
         else:
-            # if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
-            #     print(tabs(ntabs), end='')            
-            #     print(self.label, "(", self.children[0].label, ")", sep='')
-            # elif self.label == "BLOCK":
-            #     for child in self.children:
-            #         child.print_tree(ntabs)
-            # else:
-            #     print(tabs(ntabs), self.label, sep='')
-            #     print(tabs(ntabs), "(", sep='')
+            print(tabs(ntabs), self.label, sep='')
+            print(tabs(ntabs), "(", sep='')
 
-            #     non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+            non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
 
-            #     if len(non_empty_children) != 0:
-            #         for i, child in enumerate(non_empty_children):
-            #             if child is not None:
-            #                 child.print_tree(ntabs + 1)
-            #             if i != len(non_empty_children)-1:
-            #                 print(tabs(ntabs+1), ",", sep='')
-            #     if self.label == "WHILE" or self.label == "IF":
-            #         print()
-            #     print(tabs(ntabs), ")", sep='')
-            pass
+            if len(non_empty_children) != 0:
+                for i, child in enumerate(non_empty_children):
+                    if child is not None:
+                        child.print_tree(debug=False, ntabs=ntabs + 1)
+                    if i != len(non_empty_children)-1:
+                        print(tabs(ntabs+1), ",", sep='')
+            if self.label == "WHILE" or self.label == "IF":
+                print()
+            print(tabs(ntabs), ")", sep='')
+
+        # if self.label == "VAR" or self.label == "CONST" or self.label == "ID":
+        #     print(tabs(ntabs), end='')            
+        #     print(self.label, "(", self.children[0].label, ")", sep='')
+        # elif self.label == "BLOCK" or self.label == "GLOBAL":
+        #     for child in self.children:
+        #         child.print_tree(ntabs)
+
+        # elif self.label == "FUNCTION":
+
+        #     func_name = self.children[0].children[0].label
+        #     is_prototype = self.children[0].children[0].children[0]
+        #     parameters = [ (get_type_str(y), x) for x, y in list(self.symbol_table[func_name]["parameters"].items())]
+        #     return_type = self.symbol_table[func_name]["return_type"]
+
+        #     if is_prototype:
+        #         return
+
+        #     print("FUNCTION %s" % (func_name))
+        #     print("PARAMS (%s)" % (", ".join([x + " " + y for x, y in parameters])))
+        #     print("RETURNS %s" % (get_type_str(return_type)))
+
+        # else:
+        #     print(tabs(ntabs), self.label, sep='')
+        #     print(tabs(ntabs), "(", sep='')
+
+        #     non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+
+        #     if len(non_empty_children) != 0:
+        #         for i, child in enumerate(non_empty_children):
+        #             if child is not None:
+        #                 child.print_tree(debug=False, ntabs=ntabs + 1)
+        #             if i != len(non_empty_children)-1:
+        #                 print(tabs(ntabs+1), ",", sep='')
+        #     print(tabs(ntabs), ")", sep='')
+
+
+        #         # print(tabs(ntabs), self.label, sep='')
+        #         # print(tabs(ntabs), "(", sep='')
+
+        #         # non_empty_children = [ x for x in self.children if x.label != "EBLOCK"]
+
+        #         # if len(non_empty_children) != 0:
+        #         #     for i, child in enumerate(non_empty_children):
+        #         #         if child is not None:
+        #         #             child.print_tree(ntabs + 1)
+        #         #         if i != len(non_empty_children)-1:
+        #         #             print(tabs(ntabs+1), ",", sep='')
+        #         # if self.label == "WHILE" or self.label == "IF":
+        #         #     print()
+        #         # print(tabs(ntabs), ")", sep='')
+        #     # pass
 
     def statement(self, call_part_of_expression=True):
         if self.label == "VAR" or self.label == "CONST":
@@ -267,7 +339,7 @@ class ASTNode:
 
                 body = node.children[1]
                 if len(body.children) == 0 or body.children[-1].label != "RETURN":
-                    node.children[1].append(ASTNode("RETURN", []))
+                    body.children.append(ASTNode("RETURN", []))
 
                 ASTNode.node_generate_graph(node.children[1])
 
@@ -288,9 +360,7 @@ class ASTNode:
 
                 return []
 
-    def generate_graph(self, symbol_table=None):
-
-        self.symbol_table = symbol_table
+    def generate_graph(self):
 
         end_list = ASTNode.node_generate_graph(self)
 
@@ -349,5 +419,9 @@ def get_block_str(block_id):
         ret_str = "End"
     return ret_str
 
-def get_type_str(type_attr):
-    return type_attr["base_type"] + "*"*type_attr["level"]
+def get_type_str(type_attr, rev=False):
+    if not rev:
+        return type_attr["base_type"] + "*"*type_attr["level"]
+    else:
+        return "*"*type_attr["level"] + type_attr["base_type"]
+
