@@ -337,11 +337,12 @@ class ASTNode:
                     curr_block = len(ASTNode.blocks.keys())
                     ASTNode.functions[curr_block] = procedure_name
 
-                body = node.children[1]
-                if len(body.children) == 0 or body.children[-1].label != "RETURN":
-                    node.children[1].children.append(ASTNode("RETURN", []))
+                if not is_prototype:
+                    body = node.children[1]
+                    if len(body.children) == 0 or body.children[-1].label != "RETURN":
+                        node.children[1].children.append(ASTNode("RETURN", []))
 
-                ASTNode.node_generate_graph(node.children[1])
+                    ASTNode.node_generate_graph(node.children[1])
 
                 # adda return statemennt if it isn't there
                 
@@ -387,6 +388,14 @@ class ASTNode:
                 args = [ (get_type_str(y), x) for x, y in list(self.symbol_table[func_name]["parameters"].items())]
                 print("function %s(%s)" % (func_name, ", ".join([x + " " + y for x, y in args])))
 
+            print("<bb %d>" % key)
+            if value[0] == "if":
+
+                for stat in value[1:-3]:
+                    print(stat)
+                print("%s goto %s" % (value[-3], get_block_str(value[-2])))
+                print("else goto %s" % (get_block_str(value[-1])))
+
             elif value[0] == "return":
                 if len(value) > 1:
                     print(value[1])
@@ -403,6 +412,7 @@ class ASTNode:
                     print(next_block_num)
 
             print()
+
             
 def get_block_str(block_id):
     if block_id != -1:
