@@ -267,7 +267,7 @@ class ASTNode:
 
                 body = node.children[1]
                 if len(body.children) == 0 or body.children[-1].label != "RETURN":
-                    node.children[1].append(ASTNode("RETURN", []))
+                    node.children[1].children.append(ASTNode("RETURN", []))
 
                 ASTNode.node_generate_graph(node.children[1])
 
@@ -303,6 +303,7 @@ class ASTNode:
     def print_graph(self):
 
         flow = ASTNode.blocks
+<<<<<<< 55aec79d36143796490f5ad9a9018f10b0a578fa
         # print()
 
         # print(flow)
@@ -317,6 +318,14 @@ class ASTNode:
                 args = [ (get_type_str(y), x) for x, y in list(self.symbol_table[func_name]["parameters"].items())]
                 print("function %s(%s)" % (func_name, ", ".join([x + " " + y for x, y in args])))
 
+=======
+        print()
+
+        print(flow)
+        print(ASTNode.functions)
+
+        for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
+>>>>>>> symbol table printing
             print("<bb %d>" % key)
             if value[0] == "if":
 
@@ -325,12 +334,15 @@ class ASTNode:
                 print("%s goto %s" % (value[-3], get_block_str(value[-2])))
                 print("else goto %s" % (get_block_str(value[-1])))
 
+<<<<<<< 55aec79d36143796490f5ad9a9018f10b0a578fa
             elif value[0] == "return":
                 if len(value) > 1:
                     print(value[1])
                 else:
                     print(value[0])
 
+=======
+>>>>>>> symbol table printing
             else:
                 for statement in value[:-1]:
                     print(statement)
