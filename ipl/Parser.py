@@ -759,6 +759,11 @@ class Parser:
                 "dnp" : False
             }
 
+            if ret_type_lop["level"] != 0:
+                raise Exception("Pointer arithmetic is not permitted")
+            if ret_type_rop["level"] != 0:
+                raise Exception("Pointer arithmetic is not permitted")
+
             if node.label in ['PLUS', 'MINUS', 'MUL', 'DIV']:
                 if ret_type_lop["base_type"] == "boolean" or ret_type_lop != ret_type_rop:
                     raise Exception("Type mismatch for "+node.label+" at: ")
@@ -782,6 +787,11 @@ class Parser:
             ntype = {
                 "dnp" : False
             }
+
+            if ret_type_lop["level"] != 0:
+                raise Exception("Pointer arithmetic is not permitted")
+            if ret_type_rop["level"] != 0:
+                raise Exception("Pointer arithmetic is not permitted")
             
             if node.label == "UMINUS":
                 if ret_type["base_type"] == "boolean":
@@ -806,7 +816,7 @@ class Parser:
         self.syntax_tree.print_tree(debug=True)
 
     def generate_control_flow_graph(self):
-        self.syntax_tree.generate_graph()
+        self.syntax_tree.generate_graph(self.symbol_table)
 
     def print_control_flow_graph(self):
         self.syntax_tree.print_graph()

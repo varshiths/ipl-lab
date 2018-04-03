@@ -17,7 +17,7 @@ class ASTNode:
 
     functions = {}
     blocks = {}
-    conditions = {}
+    temporaries = {}
 
     def __init__(self, label, children):
         self.label = label
@@ -71,13 +71,28 @@ class ASTNode:
             #     print(tabs(ntabs), ")", sep='')
             pass
 
-    def statement(self):
+    def statement(self, call_part_of_expression=True):
         if self.label == "VAR" or self.label == "CONST":
             return [self.children[0].label]
         elif self.label == "DEREF":
-            return ["*" + self.children[0].statement()[0]]
+            ret_list = []
+            a_list = self.children[0].statement()
+
+            ret_list.extend(a_list[:-1])
+            ret_list.append("*" + a_list[-1])
+
+            return ret_list
+
         elif self.label == "ADDR":
-            return ["&" + self.children[0].statement()[0]]
+
+            ret_list = []
+            a_list = self.children[0].statement()
+
+            ret_list.extend(a_list[:-1])
+            ret_list.append("&" + a_list[-1])
+            
+            return ret_list
+
         elif self.label == "ASGN":
 
             a_list = self.children[0].statement()
@@ -95,15 +110,15 @@ class ASTNode:
             a_list = self.children[0].statement()
             b_list = self.children[1].statement()
 
-            curr_cond = len(ASTNode.conditions.keys())
-            ASTNode.conditions[curr_cond] = "t%d %s %s %s %s" % (curr_cond, "=", a_list[-1], binary_ops[self.label], b_list[-1])
+            curr_temp = len(ASTNode.temporaries.keys())
+            ASTNode.temporaries[curr_temp] = "t%d %s %s %s %s" % (curr_temp, "=", a_list[-1], binary_ops[self.label], b_list[-1])
 
             ret_list = []
             ret_list.extend(a_list[:-1])
             ret_list.extend(b_list[:-1])
-            ret_list.append(ASTNode.conditions[curr_cond])
+            ret_list.append(ASTNode.temporaries[curr_temp])
 
-            ret_list.append("t%d" % curr_cond)
+            ret_list.append("t%d" % curr_temp)
 
             return ret_list
 
@@ -111,14 +126,14 @@ class ASTNode:
             
             a_list = self.children[0].statement()
 
-            curr_cond = len(ASTNode.conditions.keys())
-            ASTNode.conditions[curr_cond] = "t%d %s %s %s" % (curr_cond, "=", unary_ops[self.label], a_list[-1])
+            curr_temp = len(ASTNode.temporaries.keys())
+            ASTNode.temporaries[curr_temp] = "t%d %s %s %s" % (curr_temp, "=", unary_ops[self.label], a_list[-1])
 
             ret_list = []
             ret_list.extend(a_list[:-1])
-            ret_list.append(ASTNode.conditions[curr_cond])
+            ret_list.append(ASTNode.temporaries[curr_temp])
 
-            ret_list.append("t%d" % curr_cond)
+            ret_list.append("t%d" % curr_temp)
 
             return ret_list
 
@@ -132,19 +147,25 @@ class ASTNode:
                 args_temps.append(arg[-1])
                 arg = arg[:-1]
 
-            curr_cond = len(ASTNode.conditions.keys())
-            ASTNode.conditions[curr_cond] = "t%d = %s(%s)" % ( curr_cond, func_name, str(",".join(args_temps)))
+            if call_part_of_expression:
+                curr_temp = len(ASTNode.temporaries.keys())
+                ASTNode.temporaries[curr_temp] = "t%d = %s(%s)" % ( curr_temp, func_name, str(",".join(args_temps)))
 
-            ret_list = [ stats for stats in arg for arg in args_list ]
-            ret_list.append(ASTNode.conditions[curr_cond])
-            ret_list.append("t%d" % curr_cond)
+                ret_list = [ stats for stats in arg for arg in args_list ]
+                ret_list.append(ASTNode.temporaries[curr_temp])
+                ret_list.append("t%d" % curr_temp)
+            else:
+                stat = "%s(%s)" % (func_name, str(",".join(args_temps)))
+
+                ret_list = [ stats for stats in arg for arg in args_list ]
+                ret_list.append(stat)
 
             return ret_list
 
     def node_generate_graph(node):
 
-        print(node.label)
-        print()
+        # print(node.label)
+        # print()
 
         if node is not None:
             if node.label == "BLOCK" or node.label == "EBLOCK" or node.label == "GLOBAL":
@@ -160,7 +181,11 @@ class ASTNode:
                                 and child.label != "FUNCTION" \
                                 and child.label != "RETURN":
 
-                                ASTNode.blocks[curr_block].extend(child.statement())
+                                if child.label == "CALL":
+                                    ASTNode.blocks[curr_block].extend(child.statement(False))
+                                else:
+                                    ASTNode.blocks[curr_block].extend(child.statement())
+
                                 if i == len(node.children)-1:
                                     return [curr_block]
                             else:
@@ -241,7 +266,7 @@ class ASTNode:
                     ASTNode.functions[curr_block] = procedure_name
 
                 body = node.children[1]
-                if body[-1].label != "RETURN":
+                if len(body.children) == 0 or body.children[-1].label != "RETURN":
                     node.children[1].append(ASTNode("RETURN", []))
 
                 ASTNode.node_generate_graph(node.children[1])
@@ -263,8 +288,9 @@ class ASTNode:
 
                 return []
 
+    def generate_graph(self, symbol_table=None):
 
-    def generate_graph(self):
+        self.symbol_table = symbol_table
 
         end_list = ASTNode.node_generate_graph(self)
 
@@ -272,35 +298,49 @@ class ASTNode:
         for blk in end_list:
             ASTNode.blocks[blk].append(last_blk_id)
 
-        ASTNode.blocks[last_blk_id] = [-1]
+        # ASTNode.blocks[last_blk_id] = [-1]
 
     def print_graph(self):
 
         flow = ASTNode.blocks
-        print()
+        # print()
 
-        print(flow)
-        print(ASTNode.functions)
+        # print(flow)
+        # print(ASTNode.functions)
 
-        # for key, value in sorted(flow.items(), key=lambda x: x[0])[1:]:
-        #     print("<bb %d>" % key)
-        #     if value[0] == "if":
+        # print()
 
-        #         for stat in value[1:-3]:
-        #             print(stat)
-        #         print("%s goto %s" % (value[-3], get_block_str(value[-2])))
-        #         print("else goto %s" % (get_block_str(value[-1])))
+        for key, value in sorted(flow.items(), key=lambda x: x[0]):
 
-        #     else:
-        #         for statement in value[:-1]:
-        #             print(statement)
-        #         next_block_num = get_block_str(value[-1])
-        #         if next_block_num != "End":
-        #             print("goto %s" % (next_block_num))
-        #         else:
-        #             print(next_block_num)
+            if key in ASTNode.functions.keys():
+                func_name = ASTNode.functions[key]
+                args = [ (get_type_str(y), x) for x, y in list(self.symbol_table[func_name]["parameters"].items())]
+                print("function %s(%s)" % (func_name, ", ".join([x + " " + y for x, y in args])))
 
-        #     print()
+            print("<bb %d>" % key)
+            if value[0] == "if":
+
+                for stat in value[1:-3]:
+                    print(stat)
+                print("%s goto %s" % (value[-3], get_block_str(value[-2])))
+                print("else goto %s" % (get_block_str(value[-1])))
+
+            elif value[0] == "return":
+                if len(value) > 1:
+                    print(value[1])
+                else:
+                    print(value[0])
+
+            else:
+                for statement in value[:-1]:
+                    print(statement)
+                next_block_num = get_block_str(value[-1])
+                if next_block_num != "End":
+                    print("goto %s" % (next_block_num))
+                else:
+                    print(next_block_num)
+
+            print()
             
 def get_block_str(block_id):
     if block_id != -1:
@@ -308,3 +348,6 @@ def get_block_str(block_id):
     else:
         ret_str = "End"
     return ret_str
+
+def get_type_str(type_attr):
+    return type_attr["base_type"] + "*"*type_attr["level"]
