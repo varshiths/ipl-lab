@@ -153,7 +153,7 @@ class Sym:
 
         for key, val in sorted(self.table.items()):
             if val["type"] == "variable":
-                print("%s \t\t | %s \t\t | %s \t\t | %s \t\t " % (key, "procedure global", val["base_type"], "*"*val["level"]))
+                print("%s \t\t | %s \t\t | %s \t\t | %s \t\t " % (key, "global", val["base_type"], "*"*val["level"]))
             else:
                 local_vars = list(val["symbol_table"].items())
                 local_vars.extend(list(val["parameters"].items()))
