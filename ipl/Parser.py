@@ -10,6 +10,7 @@ from .AST import ASTNode, rev_binary_ops, rev_unary_ops
 from .AST import binary_ops, unary_ops
 
 from .Sym import Sym
+from .Assembly import Assembly
 
 class Parser:
 
@@ -20,6 +21,7 @@ class Parser:
         self.parser = yacc.yacc(debug=parser_debug, module=self)
         self.symbol_table = Sym()
         self.syntax_tree = None
+        self.assembly = Assembly()
 
     precedence = (
         ('right', 'ASSIGN'),
@@ -824,12 +826,19 @@ class Parser:
     def print_symbol_table(self):
         self.symbol_table.print_table()
 
+    def generate_assembly(self):
+        self.assembly.initialise(self.symbol_table, self.syntax_tree)
+        self.assembly.generate_code()
+
+    def print_assembly(self):
+        self.assembly.print_code()
+
     def process(self, data):
         try:
             yacc.parse(data, lexer=self.lexer.lexer)
             self.syntax_tree.set_symbol_table(self.symbol_table)
 
-            ast, cfg, sym = "", "", ""
+            ast, cfg, sym, assembly = "", "", "", ""
 
             self.type_check()
 
@@ -847,11 +856,17 @@ class Parser:
                 self.print_symbol_table()
                 sym = buf.getvalue()
 
-            return ast, cfg, sym
+            self.generate_assembly()
+
+            with io.StringIO() as buf, redirect_stdout(buf):
+                self.print_assembly()
+                assembly = buf.getvalue()
+
+            return ast, cfg, sym, assembly
 
         except Exception as e:
             import traceback
             traceback.print_exc()
             print("Error: " + str(e), file=sys.stderr)
 
-            return ast, cfg, sym
+            return ast, cfg, sym, assembly

@@ -13,12 +13,12 @@ if __name__ == "__main__":
         print("Error: Incorrect number of arguments")
         print("Usage: main.py program")
         sys.exit()
-    input_file = os.path.basename(sys.argv[1])
+    input_file = sys.argv[1]
 
     parser = Parser(parser_debug=YDBG, lexer_debug=LDBG)
 
     with open(sys.argv[1], 'r') as f:
-        ast, cfg, sym = parser.process(f.read())
+        ast, cfg, sym, assembly = parser.process(f.read())
 
     with open(sys.argv[1] + ".ast", 'w+') as f:
         f.write(ast)
@@ -26,3 +26,5 @@ if __name__ == "__main__":
         f.write(cfg)
     with open(sys.argv[1] + ".sym", 'w+') as f:
         f.write(sym)
+    with open(sys.argv[1] + ".s", 'w+') as f:
+        f.write(assembly)
