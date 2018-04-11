@@ -11,4 +11,5 @@ test
 *.sym
 *.cfg
 *.ast
+*.s
 *.stdout

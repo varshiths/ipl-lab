@@ -13,6 +13,89 @@ for key, val in unary_ops.items():
 def tabs(n):
     return "\t"*n
 
+class Block:
+    def __init__(self, control_type=False, return_type="false"):
+        self.control_type = control_type
+        self.return_type = return_type
+        self.list_stat = []
+        self.set = 0
+        self.goto1 = None
+        self.goto2 = None
+
+    def setControlType(self, control_type):
+        self.control_type = control_type
+
+    def setGoto(self, goto):
+
+        if self.set == 0:
+            self.set += 1
+            self.goto1 = goto
+
+        elif self.set == 1:
+            if not self.control_type:
+                raise Exception()
+            else:
+                self.set += 1
+                self.goto2 = goto
+        else:
+            raise Exception()
+
+    def setGoto1(self, goto1):
+        self.goto1 = goto1
+
+    def setGoto2(self, goto2):
+        self.goto2 = goto2
+
+    def extend(self, stats):
+        self.list_stat.extend(stats)
+
+    def append(self, stat):
+        self.list_stat.append(stat)
+
+    def getStatementList(self):
+        return self.list_stat
+
+    def __repr__(self):
+        ret = {}
+
+        ret["control_type"] = self.control_type
+        ret["return_type"] = self.return_type
+        ret["stats"] = self.list_stat
+
+        if not self.control_type:
+            ret["goto"] = self.goto1
+        else:
+            ret["goto1"] = self.goto1
+            ret["goto2"] = self.goto2
+
+        import pprint
+        pp = pprint.PrettyPrinter(indent=4)
+
+        return pp.pformat(ret)
+        
+class Statement:
+    def __init__(self, tokens, stat_type="place"):
+        self.tokens = tokens
+        self.stat_type = stat_type
+    
+    def __repr__(self):
+
+        list_token_strings = []
+
+        if self.stat_type == "func_ret":
+            list_token_strings = self.tokens[:2]
+            func_name = self.tokens[2]
+            args_str = ",".join([ x.__str__() for x in self.tokens[3:]])
+            list_token_strings.append( "%s(%s)" % (func_name, args_str) )
+        elif self.stat_type == "func_no_ret":
+            func_name = self.tokens[0]
+            args_str = ",".join([ x.__str__() for x in self.tokens[1:]])
+            list_token_strings.append( "%s(%s)" % (func_name, args_str) )
+        else:
+            for a in self.tokens:
+                list_token_strings.append(a.__str__())
+        return " ".join(list_token_strings)
+
 class ASTNode:
 
     functions = {}
@@ -145,13 +228,14 @@ class ASTNode:
 
     def statement(self, call_part_of_expression=True):
         if self.label == "VAR" or self.label == "CONST":
-            return [self.children[0].label]
+            type((self.children[0].label))
+            return [Statement([self.children[0].label])]
         elif self.label == "DEREF":
             ret_list = []
             a_list = self.children[0].statement()
 
             ret_list.extend(a_list[:-1])
-            ret_list.append("*" + a_list[-1])
+            ret_list.append( Statement([ "*" + a_list[-1].__str__() ]) )
 
             return ret_list
 
@@ -161,7 +245,7 @@ class ASTNode:
             a_list = self.children[0].statement()
 
             ret_list.extend(a_list[:-1])
-            ret_list.append("&" + a_list[-1])
+            ret_list.append( Statement([ "&" + a_list[-1].__str__() ]) )
             
             return ret_list
 
@@ -173,7 +257,7 @@ class ASTNode:
             ret_list = []
             ret_list.extend(a_list[:-1])
             ret_list.extend(b_list[:-1])
-            ret_list.append("%s %s %s" % (a_list[-1], "=", b_list[-1]))
+            ret_list.append(Statement([a_list[-1], "=", b_list[-1]], self.label))
 
             return ret_list
 
@@ -183,14 +267,14 @@ class ASTNode:
             b_list = self.children[1].statement()
 
             curr_temp = len(ASTNode.temporaries.keys())
-            ASTNode.temporaries[curr_temp] = "t%d %s %s %s %s" % (curr_temp, "=", a_list[-1], binary_ops[self.label], b_list[-1])
+            ASTNode.temporaries[curr_temp] = Statement(["t%d" % curr_temp, "=", a_list[-1], binary_ops[self.label], b_list[-1]], self.label)
 
             ret_list = []
             ret_list.extend(a_list[:-1])
             ret_list.extend(b_list[:-1])
             ret_list.append(ASTNode.temporaries[curr_temp])
 
-            ret_list.append("t%d" % curr_temp)
+            ret_list.append(Statement(["t%d" % curr_temp]))
 
             return ret_list
 
@@ -199,13 +283,13 @@ class ASTNode:
             a_list = self.children[0].statement()
 
             curr_temp = len(ASTNode.temporaries.keys())
-            ASTNode.temporaries[curr_temp] = "t%d %s %s %s" % (curr_temp, "=", unary_ops[self.label], a_list[-1])
+            ASTNode.temporaries[curr_temp] = Statement(["t%d" % curr_temp, "=", unary_ops[self.label], a_list[-1]], self.label)
 
             ret_list = []
             ret_list.extend(a_list[:-1])
             ret_list.append(ASTNode.temporaries[curr_temp])
 
-            ret_list.append("t%d" % curr_temp)
+            ret_list.append(Statement(["t%d" % curr_temp]))
 
             return ret_list
 
@@ -215,21 +299,34 @@ class ASTNode:
             args_list = [ child.statement() for child in self.children[1:] ]
             
             args_temps = []
-            for arg in args_list:
+            for i, arg in enumerate(args_list):
                 args_temps.append(arg[-1])
-                arg = arg[:-1]
+                args_list[i] = arg[:-1]
 
             if call_part_of_expression:
                 curr_temp = len(ASTNode.temporaries.keys())
-                ASTNode.temporaries[curr_temp] = "t%d = %s(%s)" % ( curr_temp, func_name, str(",".join(args_temps)))
 
-                ret_list = [ stats for stats in arg for arg in args_list ]
+                list_tokens = ["t%d" % curr_temp, "=", func_name]
+                list_tokens.extend(args_temps)
+                ASTNode.temporaries[curr_temp] = Statement(list_tokens, "func_ret")
+
+                # ret_list = [ stats for stats in arg for arg in args_list ]
+                ret_list = []
+                for arg in args_list:
+                    for stats in arg:
+                        ret_list.append(stats)
                 ret_list.append(ASTNode.temporaries[curr_temp])
-                ret_list.append("t%d" % curr_temp)
+                ret_list.append(Statement(["t%d" % curr_temp]))
             else:
-                stat = "%s(%s)" % (func_name, str(",".join(args_temps)))
+                list_tokens = [func_name]
+                list_tokens.extend(args_temps)
+                stat = Statement(list_tokens, "func_no_ret")
 
-                ret_list = [ stats for stats in arg for arg in args_list ]
+                # ret_list = [ stats for stats in arg for arg in args_list ]
+                ret_list = []
+                for arg in args_list:
+                    for stats in arg:
+                        ret_list.append(stats)
                 ret_list.append(stat)
 
             return ret_list
@@ -245,7 +342,7 @@ class ASTNode:
                     return []
                 else:
                     curr_block = len(ASTNode.blocks.keys())
-                    ASTNode.blocks[curr_block] = []
+                    ASTNode.blocks[curr_block] = Block()
                     for i, child in enumerate(node.children):
                         if child is not None:
                             if  child.label != "IF" \
@@ -262,10 +359,10 @@ class ASTNode:
                                     return [curr_block]
                             else:
 
-                                if len(ASTNode.blocks[curr_block]) == 0:
+                                if len(ASTNode.blocks[curr_block].getStatementList()) == 0:
                                     del ASTNode.blocks[curr_block]
                                 else:
-                                    ASTNode.blocks[curr_block].append(curr_block+1)
+                                    ASTNode.blocks[curr_block].setGoto(curr_block+1)
 
                                 block_list = ASTNode.node_generate_graph(child)
 
@@ -274,14 +371,14 @@ class ASTNode:
                                 else:
                                     next_block = len(ASTNode.blocks.keys())
                                     for blk in block_list:
-                                        ASTNode.blocks[blk].append(next_block)
+                                        ASTNode.blocks[blk].setGoto(next_block)
 
                                 curr_block = len(ASTNode.blocks.keys())
-                                ASTNode.blocks[curr_block] = []
+                                ASTNode.blocks[curr_block] = Block()
 
             elif node.label == "IF":
                 curr_block = len(ASTNode.blocks.keys())
-                ASTNode.blocks[curr_block] = []
+                ASTNode.blocks[curr_block] = Block()
 
                 cond_list = node.children[0].statement()
                 true_blk = curr_block + 1
@@ -289,7 +386,7 @@ class ASTNode:
                 false_blk = len(ASTNode.blocks.keys())
                 b = ASTNode.node_generate_graph(node.children[2])
 
-                ASTNode.blocks[curr_block] = ["if"]
+                ASTNode.blocks[curr_block].setControlType(True);
                 ASTNode.blocks[curr_block].extend(cond_list[:-1])
                 ASTNode.blocks[curr_block].append("if(%s)" % (cond_list[-1]))
 
@@ -297,35 +394,35 @@ class ASTNode:
                 if len(a) == 0:
                     end_list.append(curr_block)
                 else:
-                    ASTNode.blocks[curr_block].append(true_blk)
+                    ASTNode.blocks[curr_block].setGoto(true_blk)
                     end_list.extend(a)
 
                 if len(b) == 0:
                     end_list.append(curr_block)
                 else:
-                    ASTNode.blocks[curr_block].append(false_blk)
+                    ASTNode.blocks[curr_block].setGoto(false_blk)
                     end_list.extend(b)
 
                 return end_list
 
             elif node.label == "WHILE":
                 curr_block = len(ASTNode.blocks.keys())
-                ASTNode.blocks[curr_block] = []
+                ASTNode.blocks[curr_block] = Block()
 
                 cond_list = node.children[0].statement()
                 true_blk = curr_block + 1
                 a = ASTNode.node_generate_graph(node.children[1])
 
-                ASTNode.blocks[curr_block] = ["if"]
+                ASTNode.blocks[curr_block].setControlType(True)
                 ASTNode.blocks[curr_block].extend(cond_list[:-1])
                 ASTNode.blocks[curr_block].append("if(%s)" % (cond_list[-1]))
 
                 if len(a) != 0:
-                    ASTNode.blocks[curr_block].append(true_blk)
+                    ASTNode.blocks[curr_block].setGoto(true_blk)
                     for blk in a:
-                        ASTNode.blocks[blk].append(curr_block)
+                        ASTNode.blocks[blk].setGoto(curr_block)
                 else:
-                    ASTNode.blocks[curr_block].append(curr_block)
+                    ASTNode.blocks[curr_block].setGoto(curr_block)
 
                 return [curr_block]
 
@@ -351,13 +448,13 @@ class ASTNode:
 
             elif node.label == "RETURN":
                 curr_block = len(ASTNode.blocks.keys())
-                ASTNode.blocks[curr_block] = ["return"]
 
                 if len(node.children) == 1:
+                    ASTNode.blocks[curr_block] = Block(return_type="non_void")
                     statements = node.children[0].statement()
-
-                    statements[-1] = "return " + statements[-1]
                     ASTNode.blocks[curr_block].extend(statements)
+                else:
+                    ASTNode.blocks[curr_block] = Block(return_type="void")
 
                 return []
 
@@ -367,7 +464,7 @@ class ASTNode:
 
         last_blk_id = len(ASTNode.blocks.keys())
         for blk in end_list:
-            ASTNode.blocks[blk].append(last_blk_id)
+            ASTNode.blocks[blk].setGoto(last_blk_id)
 
         # ASTNode.blocks[last_blk_id] = [-1]
 
@@ -379,33 +476,38 @@ class ASTNode:
         # print(flow)
         # print(ASTNode.functions)
 
-        # print()
+        print()
 
-        for key, value in sorted(flow.items(), key=lambda x: x[0]):
+        for block_id, block in sorted(flow.items(), key=lambda x: x[0]):
 
-            if key in ASTNode.functions.keys():
-                func_name = ASTNode.functions[key]
+            if block_id in ASTNode.functions.keys():
+                func_name = ASTNode.functions[block_id]
                 args = [ (get_type_str(y), x) for x, y in list(self.symbol_table[func_name]["parameters"].items())]
                 print("function %s(%s)" % (func_name, ", ".join([x + " " + y for x, y in args])))
 
-            print("<bb %d>" % key)
-            if value[0] == "if":
+            list_stat = block.list_stat
+            print("<bb %d>" % block_id)
+            if block.control_type:
 
-                for stat in value[1:-3]:
-                    print(stat)
-                print("%s goto %s" % (value[-3], get_block_str(value[-2])))
-                print("else goto %s" % (get_block_str(value[-1])))
+                for stat in list_stat[:-1]:
+                    print((stat))
+                print("%s goto %s" % (list_stat[-1], get_block_str(block.goto1)))
+                print("else goto %s" % (get_block_str(block.goto2)))
 
-            elif value[0] == "return":
-                if len(value) > 1:
-                    print(value[1])
+            elif block.return_type != "false":
+                for statement in list_stat[:-1]:
+                    print(statement)
+
+                if block.return_type == "void":
+                    print("return")
                 else:
-                    print(value[0])
+                    print("return " + list_stat[-1].__str__())
 
             else:
-                for statement in value[:-1]:
+                for statement in list_stat:
                     print(statement)
-                next_block_num = get_block_str(value[-1])
+
+                next_block_num = get_block_str(block.goto1)
                 if next_block_num != "End":
                     print("goto %s" % (next_block_num))
                 else:
