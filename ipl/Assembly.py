@@ -32,11 +32,30 @@ class Assembly:
     def add_raw_string(self, string):
         self.add_stat(string, None, False)
 
+    def get_offsets(self, func_name):
+        symbol_table = self.symbol_table.table[func_name]["symbol_table"]
+        offsets_dict = {}
+        offset_so_far = 0
+        for local, attr in sorted(symbol_table.items()):
+            size = self.get_type_size(attr)
+            offsets_dict[local] = offset_so_far + size
+            offset_so_far += size
+
+        return offsets_dict
+
+
     def size_table(self, func_name):
         param_size = sum( [ self.get_type_size(type_dict) for name, type_dict in self.symbol_table.table[func_name]["parameters"].items() ] )
         locals_size = sum( [ self.get_type_size(type_dict) for name, type_dict in self.symbol_table.table[func_name]["symbol_table"].items() ] )
 
         return param_size + locals_size
+
+    def extract_var_name(self, str):
+        var_str = "(VAR)"
+        last_var_pos = str.rfind(var_str)
+        p = last_var_pos + len(var_str)
+        var_name = str[p:]
+        return var_name
 
     def get_free_register(self):
         # return free register
@@ -50,7 +69,6 @@ class Assembly:
         self.free_registers.append(register)
 
         
-
     def gen_assembly_stat(self, statement):
 
         #self.add_stat(statement)
@@ -61,13 +79,20 @@ class Assembly:
             # RHS
             rh_var = tokens[-1]
             print(rh_var)
+            print("rh_var.type ", rh_var.stat_type)
+            r_reg = self.get_free_register()
             if rh_var.stat_type == "CONST":
-                r_reg = self.get_free_register()
                 val = rh_var.tokens[0]
                 instrn = "li $%s, %s" % (r_reg, val)
                 print(instrn)
-                self.code.append(instrn)
-            # more cases
+                self.add_stat(instrn)
+            elif rh_var.stat_type == "VAR":
+                offset = self.offsets[rh_var.tokens[0]]
+                self.add_stat("lw $%s, %s($sp)" % (r_reg, offset))
+            elif rh_var.stat_type == "ADDR":
+                var_name = self.extract_var_name(rh_var.tokens[0])
+                offset = self.offsets[var_name]
+                self.add_stat("addi $%s, $sp, %s" % (r_reg, offset))
 
             # LHS
             lh_var = tokens[0]
@@ -76,28 +101,44 @@ class Assembly:
             print(lh_var.tokens)
             deref_ct = lh_var.tokens[0].count("*")
             print(deref_ct)
-
-            offset = 4 # get from symbol table
-            l1_reg = self.get_free_register()
-            self.code.append("lw $%s, %s($sp)" % (l1_reg, offset))
-
-            l_prev = l1_reg
-            for i in range(deref_ct-1):
-                l_curr = self.get_free_register()
-                self.code.append("lw $%s, 0($%s)" % (l_curr, l_prev))
-                # mark l1_prev free
-                self.set_register_free(l_prev)
-                l_prev = l_curr
-
-            self.code.append("sw $%s, 0($%s)" % (r_reg, l_curr))
-            if int(r_reg[-1]) > int(l_curr[-1]):
+            
+            if deref_ct == 0:
+                l_offset = self.offsets[lh_var.tokens[0]]
+                self.add_stat("sw $%s, %s($sp)" % (r_reg, l_offset))
                 self.set_register_free(r_reg)
-                self.set_register_free(l_curr)
             else:
-                self.set_register_free(l_curr)
-                self.set_register_free(r_reg)
+                l_var_name = self.extract_var_name(lh_var.tokens[0])
+                l_offset = self.offsets[l_var_name]
+                l1_reg = self.get_free_register()
+                self.add_stat("lw $%s, %s($sp)" % (l1_reg, l_offset))
+                l_prev = l1_reg
+                l_curr = l1_reg
+                for i in range(deref_ct-1):
+                    l_curr = self.get_free_register()
+                    self.add_stat("lw $%s, 0($%s)" % (l_curr, l_prev))
+                    # mark l1_prev free
+                    self.set_register_free(l_prev)
+                    l_prev = l_curr
+
+                self.add_stat("sw $%s, 0($%s)" % (r_reg, l_curr))
+                # free registers
+                if int(r_reg[-1]) > int(l_curr[-1]):
+                    self.set_register_free(r_reg)
+                    self.set_register_free(l_curr)
+                else:
+                    self.set_register_free(l_curr)
+                    self.set_register_free(r_reg)
+                
+
+
+
+            
+            
 
             print(self.free_registers)
+       
+
+
 
 
         pass
@@ -108,7 +149,7 @@ class Assembly:
         self.add_stat("sw $ra, 0($sp)", save_ra_string)
         self.add_stat("sw $fp, -4($sp)", save_fp_string)
         self.add_stat("sub $fp, $sp, 8", update_fp_string)
-        self.add_stat("sub $sp, $sp, %d" % ( locals_space ), space_locals_string)
+        self.add_stat("sub $sp, $sp, %d" % ( 8 + locals_space ), space_locals_string)
         self.add_raw_string("# Prologue begins")
 
     def gen_func_code(self, blockid):
@@ -121,6 +162,7 @@ class Assembly:
 
         func_name = self.ast.functions[blockid]
         locals_space = self.size_table(func_name)
+        self.offsets = self.get_offsets(func_name)
 
         # directives
         self.add_stat(".text", dot_text_string)
@@ -174,9 +216,9 @@ class Assembly:
         self.add_raw_string("# Epilogue begins")
         self.add_stat("epilogue_%s:" % (func_name))
 
-        self.add_stat("add $sp, $sp, %d" % (locals_space))
+        self.add_stat("add $sp, $sp, %d" % (8 + locals_space))
         self.add_stat("lw $fp, -4($sp)")
-        self.add_stat("sw $ra, 0($sp)")
+        self.add_stat("lw $ra, 0($sp)")
         self.add_stat("jr $ra", return_string)
         self.add_raw_string("# Epilogue ends")
 

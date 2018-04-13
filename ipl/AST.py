@@ -236,7 +236,7 @@ class ASTNode:
             a_list = self.children[0].statement()
 
             ret_list.extend(a_list[:-1])
-            ret_list.append( Statement([ "*" + a_list[-1].__str__() ]) )
+            ret_list.append( Statement([ "*" + a_list[-1].__str__() ], self.label) )
 
             return ret_list
 
@@ -246,7 +246,7 @@ class ASTNode:
             a_list = self.children[0].statement()
 
             ret_list.extend(a_list[:-1])
-            ret_list.append( Statement([ "&" + a_list[-1].__str__() ]) )
+            ret_list.append( Statement([ "&" + a_list[-1].__str__() ], self.label) )
             
             return ret_list
 
