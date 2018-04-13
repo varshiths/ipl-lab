@@ -5,24 +5,85 @@ class Assembly:
     def initialise(self, symbol_table, ast):
         self.symbol_table = symbol_table
         self.ast = ast
-
+        self.instructions_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'UMINUS':'negu'}
+        self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'seq', 'NE':'sne', 'AND':'&&', 'OR':'||'}
         self.code = []
 
     def add_stat(self, string):
         self.code.append(string)
 
+
     def size_table(self, func_name):
         return 0
 
+    def get_free_register(self):
+        # return free register
+        # remove from free list
+        if len(self.free_registers) > 0:
+            reg = self.free_registers.pop()
+
+        return reg
+
+    def set_register_free(self, register):
+        self.free_registers.append(register)
+
+        
+
     def gen_assembly_stat(self, statement):
 
-        self.add_stat(statement)
+        #self.add_stat(statement)
+        print(statement.stat_type, statement.tokens)
+        stat_type = statement.stat_type
+        tokens = statement.tokens
+        if statement.stat_type == "ASGN":
+            # RHS
+            rh_var = tokens[-1]
+            print(rh_var)
+            if rh_var.stat_type == "CONST":
+                r_reg = self.get_free_register()
+                val = rh_var.tokens[0]
+                instrn = "li $%s, %s" % (r_reg, val)
+                print(instrn)
+                self.code.append(instrn)
+            # more cases
+
+            # LHS
+            lh_var = tokens[0]
+            print(lh_var)
+            print(lh_var.stat_type)
+            print(lh_var.tokens)
+            deref_ct = lh_var.tokens[0].count("*")
+            print(deref_ct)
+
+            offset = 4 # get from symbol table
+            l1_reg = self.get_free_register()
+            self.code.append("lw $%s, %s($sp)" % (l1_reg, offset))
+
+            l_prev = l1_reg
+            for i in range(deref_ct-1):
+                l_curr = self.get_free_register()
+                self.code.append("lw $%s, 0($%s)" % (l_curr, l_prev))
+                # mark l1_prev free
+                self.set_register_free(l_prev)
+                l_prev = l_curr
+
+            self.code.append("sw $%s, 0($%s)" % (r_reg, l_curr))
+            if int(r_reg[-1]) > int(l_curr[-1]):
+                self.set_register_free(r_reg)
+                self.set_register_free(l_curr)
+            else:
+                self.set_register_free(l_curr)
+                self.set_register_free(r_reg)
+
+            print(self.free_registers)
+
 
         pass
 
     def gen_func_code(self, blockid):
 
-        self.free_registers = list(range(8))
+        self.free_registers = ["t" + str(x) for x in list(range(9, -1, -1))]
+        self.free_registers.extend(["s" + str(x) for x in list(range(7, -1, -1))])
         func_name = self.ast.functions[blockid]
 
         locals_space = self.size_table(func_name)

@@ -94,7 +94,8 @@ class Statement:
         else:
             for a in self.tokens:
                 list_token_strings.append(a.__str__())
-        return " ".join(list_token_strings)
+
+        return "(" + self.stat_type + ")" + " ".join(list_token_strings)
 
 class ASTNode:
 
@@ -229,7 +230,7 @@ class ASTNode:
     def statement(self, call_part_of_expression=True):
         if self.label == "VAR" or self.label == "CONST":
             type((self.children[0].label))
-            return [Statement([self.children[0].label])]
+            return [Statement([self.children[0].label], self.label)]
         elif self.label == "DEREF":
             ret_list = []
             a_list = self.children[0].statement()
