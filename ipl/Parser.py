@@ -332,7 +332,7 @@ class Parser:
 
     def p_reference(self, p):
         '''
-        reference : AMP variable
+        reference : AMP combine
         '''
         node = ASTNode("ADDR", [p[2]["node"]])
         p[0] = {

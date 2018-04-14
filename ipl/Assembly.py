@@ -15,7 +15,7 @@ class Assembly:
     def initialise(self, symbol_table, ast):
         self.symbol_table = symbol_table
         self.ast = ast
-        self.instructions_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'UMINUS':'negu'}
+        self.ops_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'UMINUS':'negu'}
         self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'seq', 'NE':'sne', 'AND':'&&', 'OR':'||'}
         self.code = []
 
@@ -50,11 +50,15 @@ class Assembly:
 
         return param_size + locals_size
 
-    def extract_var_name(self, str):
+    def extract_var_name(self, string):
         var_str = "(VAR)"
-        last_var_pos = str.rfind(var_str)
-        p = last_var_pos + len(var_str)
-        var_name = str[p:]
+        last_var_pos = string.rfind(var_str)
+        if last_var_pos == -1:
+            var_name = string
+        else:
+            p = last_var_pos + len(var_str)
+            var_name = string[p:]
+            
         return var_name
 
     def get_free_register(self):
@@ -68,6 +72,58 @@ class Assembly:
     def set_register_free(self, register):
         self.free_registers.append(register)
 
+
+    def gen_code_var(self, stat, lhs=False): # handle DEREF, ADDR and VAR statement types
+        print("gen_code_var")
+        print(stat)
+        if stat.stat_type == "CONST":
+            val = stat.tokens[0]
+            reg = self.get_free_register()
+            self.add_stat("li $%s, %s" % (reg, val))
+            return reg
+        else:
+            var_name = self.extract_var_name(stat.tokens[0])
+            offset = self.offsets[var_name]
+            if stat.stat_type == "VAR":
+                print("var")
+                reg = self.get_free_register()    
+                self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                return reg
+            else:
+                deref_ct = stat.tokens[0].count("*")
+                addr_ct = stat.tokens[0].count("&")
+                net_deref = deref_ct - addr_ct
+                if net_deref == 0: # VAR
+                    reg = self.get_free_register()    
+                    self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    return reg
+                elif net_deref > 0: # DEREF
+                    deref_ct = net_deref
+                    reg = self.get_free_register()
+                    self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    reg_prev = reg
+                    reg_curr = reg
+                    if lhs:
+                        derefs = deref_ct-1
+                    else:
+                        derefs = deref_ct
+
+                    for i in range(derefs):
+                        reg_curr = self.get_free_register()
+                        self.add_stat("lw $%s, 0($%s)" % (reg_curr, reg_prev))
+                        # mark reg_prev free
+                        self.set_register_free(reg_prev)
+                        reg_prev = reg_curr
+
+                    return reg_curr
+
+                else: # ADDR
+                    print("addr")
+                    print(stat)                  
+                    reg = self.get_free_register()
+                    self.add_stat("addi $%s, $sp, %s" % (reg, offset))
+                    return reg
+
         
     def gen_assembly_stat(self, statement):
 
@@ -75,24 +131,33 @@ class Assembly:
         print(statement.stat_type, statement.tokens)
         stat_type = statement.stat_type
         tokens = statement.tokens
-        if statement.stat_type == "ASGN":
+
+        print("statement type", statement.stat_type)
+
+        if statement.stat_type in self.ops_map:
+            instrn = self.ops_map[statement.stat_type]
+
+        elif statement.stat_type == "ASGN":
             # RHS
             rh_var = tokens[-1]
             print(rh_var)
             print("rh_var.type ", rh_var.stat_type)
-            r_reg = self.get_free_register()
-            if rh_var.stat_type == "CONST":
-                val = rh_var.tokens[0]
-                instrn = "li $%s, %s" % (r_reg, val)
-                print(instrn)
-                self.add_stat(instrn)
-            elif rh_var.stat_type == "VAR":
-                offset = self.offsets[rh_var.tokens[0]]
-                self.add_stat("lw $%s, %s($sp)" % (r_reg, offset))
-            elif rh_var.stat_type == "ADDR":
-                var_name = self.extract_var_name(rh_var.tokens[0])
-                offset = self.offsets[var_name]
-                self.add_stat("addi $%s, $sp, %s" % (r_reg, offset))
+            r_reg = self.gen_code_var(rh_var)
+                    
+            # if rh_var.stat_type == "CONST":
+            #     val = rh_var.tokens[0]
+            #     r_reg = self.get_free_register()
+            #     instrn = "li $%s, %s" % (r_reg, val)
+            #     print(instrn)
+            #     self.add_stat(instrn)
+            # elif rh_var.stat_type == "VAR":
+            #     r_reg = self.get_free_register()
+            #     offset = self.offsets[rh_var.tokens[0]]
+            #     self.add_stat("lw $%s, %s($sp)" % (r_reg, offset))
+            # elif rh_var.stat_type == "ADDR":
+                
+            # elif rh_var.stat_type == "DEREF":
+            #     r_reg = self.gen_deref(rh_var)
 
             # LHS
             lh_var = tokens[0]
@@ -107,19 +172,7 @@ class Assembly:
                 self.add_stat("sw $%s, %s($sp)" % (r_reg, l_offset))
                 self.set_register_free(r_reg)
             else:
-                l_var_name = self.extract_var_name(lh_var.tokens[0])
-                l_offset = self.offsets[l_var_name]
-                l1_reg = self.get_free_register()
-                self.add_stat("lw $%s, %s($sp)" % (l1_reg, l_offset))
-                l_prev = l1_reg
-                l_curr = l1_reg
-                for i in range(deref_ct-1):
-                    l_curr = self.get_free_register()
-                    self.add_stat("lw $%s, 0($%s)" % (l_curr, l_prev))
-                    # mark l1_prev free
-                    self.set_register_free(l_prev)
-                    l_prev = l_curr
-
+                l_curr = self.gen_code_var(lh_var, True)
                 self.add_stat("sw $%s, 0($%s)" % (r_reg, l_curr))
                 # free registers
                 if int(r_reg[-1]) > int(l_curr[-1]):
@@ -128,7 +181,6 @@ class Assembly:
                 else:
                     self.set_register_free(l_curr)
                     self.set_register_free(r_reg)
-                
 
 
 
