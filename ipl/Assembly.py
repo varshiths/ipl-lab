@@ -18,6 +18,7 @@ class Assembly:
         self.ops_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'UMINUS':'negu'}
         self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'seq', 'NE':'sne', 'AND':'&&', 'OR':'||'}
         self.code = []
+        self.curr_temp = None
 
     def add_stat(self, string, comment=None, indent=True):
         string = str(string)
@@ -58,7 +59,7 @@ class Assembly:
         else:
             p = last_var_pos + len(var_str)
             var_name = string[p:]
-            
+
         return var_name
 
     def get_free_register(self):
@@ -72,6 +73,10 @@ class Assembly:
     def set_register_free(self, register):
         self.free_registers.append(register)
 
+    def set_reg_list_free(self, reg_list):
+        reg_list.sort(reverse=True)
+        for reg in reg_list:
+            self.set_register_free(reg)
 
     def gen_code_var(self, stat, lhs=False): # handle DEREF, ADDR and VAR statement types
         print("gen_code_var")
@@ -134,15 +139,83 @@ class Assembly:
 
         print("statement type", statement.stat_type)
 
-        if statement.stat_type in self.ops_map:
+        if statement.stat_type in self.ops_map: # TODO
+            el1 = statement.tokens[-3]
+            el2 = statement.tokens[-1]
+            if el1.stat_type != "place":
+                el1_reg = self.gen_code_var(el1)
+            else:
+                el1_reg = self.curr_temp
+
+            if el2.stat_type != "place":
+                el2_reg = self.gen_code_var(el2)
+            else:
+                el2_reg = self.curr_temp
+         
             instrn = self.ops_map[statement.stat_type]
+            res_reg = self.get_free_register()
+            self.add_stat("%s $%s, $%s, $%s" % (instrn, res_reg, el1_reg, el2_reg))
+            first_free = min(el1_reg, el2_reg)
+            last_free = max(el1_reg, el2_reg)
+            self.set_register_free(first_free)
+        
+            dest_reg = self.get_free_register()
+            self.curr_temp = dest_reg
+            self.add_stat("move $%s, $%s" % (dest_reg, res_reg))
+            self.set_reg_list_free([last_free, res_reg])
+            print(self.free_registers)
+
+        elif statement.stat_type in self.logical_ops:
+            el1 = statement.tokens[-3]
+            el2 = statement.tokens[-1]
+            if el1.stat_type != "place":
+                el1_reg = self.gen_code_var(el1)
+            else:
+                el1_reg = self.curr_temp
+
+            if el2.stat_type != "place":
+                el2_reg = self.gen_code_var(el2)
+            else:
+                el2_reg = self.curr_temp
+
+            if statement.stat_type == "GT" or statement.stat_type == "LE":
+                temp = el2_reg
+                el2_reg = el1_reg
+                el1_reg = temp
+
+            cond_reg = self.get_free_register()
+            self.add_stat("slt $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+            first_free = min(el1_reg, el2_reg)
+            last_free = max(el1_reg, el2_reg)
+            self.set_register_free(first_free)
+            last_free_already = False
+            if statement.stat_type == "LE" or statement.stat_type == "GE":
+                neg_reg = self.get_free_register()
+                self.add_stat("not $%s, $%s" % (neg_reg, cond_reg))
+                self.set_register_free(cond_reg)
+                cond_reg = neg_reg
+                self.set_register_free(last_free)
+                last_free_already = True
+
+
+            dest_reg = self.get_free_register()
+            self.curr_temp = dest_reg
+            self.add_stat("move $%s, $%s" % (dest_reg, cond_reg))
+            if not last_free_already:
+                self.set_reg_list_free([last_free, cond_reg])
+            else:
+                self.set_register_free(cond_reg)
+            
 
         elif statement.stat_type == "ASGN":
             # RHS
             rh_var = tokens[-1]
             print(rh_var)
             print("rh_var.type ", rh_var.stat_type)
-            r_reg = self.gen_code_var(rh_var)
+            if rh_var.stat_type == "place":
+                r_reg = self.curr_temp
+            else:
+                r_reg = self.gen_code_var(rh_var)
                     
             # if rh_var.stat_type == "CONST":
             #     val = rh_var.tokens[0]
@@ -233,17 +306,18 @@ class Assembly:
             self.add_raw_string("label%d:" % (blockid))
 
             if block.control_type:
-
+                print("control blk")
                 # generate stat for temporaries
                 list_stat = block.list_stat
-                for stat in list_stat:
+                for stat in list_stat[:-1]:
                     self.gen_assembly_stat(stat)
 
-                self.add_stat("bne $%s, $0, label%d" % ( "temp", block.goto1 ))
+                self.add_stat("bne $%s, $0, label%d" % ( self.curr_temp, block.goto1 ))
+                self.set_register_free(self.curr_temp)
                 self.add_stat("j label%d" % ( block.goto2 ))
 
             else:
-
+                print("non-control blk")
                 # generate statements
                 list_stat = block.list_stat
                 for stat in list_stat:
