@@ -1,4 +1,5 @@
 import pprint
+from heapq import heappush, heappop, heapify
 
 dot_text_string = "The .text assembler directive indicates"
 global_func_string = "The following is the code"
@@ -16,7 +17,7 @@ class Assembly:
         self.symbol_table = symbol_table
         self.ast = ast
         self.ops_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'UMINUS':'negu'}
-        self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'seq', 'NE':'sne', 'AND':'&&', 'OR':'||'}
+        self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'==', 'NE':'!=', 'AND':'&&', 'OR':'||'}
         self.code = []
         self.curr_temp = None
 
@@ -65,16 +66,19 @@ class Assembly:
     def get_free_register(self):
         # return free register
         # remove from free list
-        if len(self.free_registers) > 0:
-            reg = self.free_registers.pop()
+        try:
+            reg = heappop(self.free_registers)
+        except IndexError:
+            print("No free registers")
 
         return reg
 
     def set_register_free(self, register):
-        self.free_registers.append(register)
+        heappush(self.free_registers, register)
+        print("setting reg free ",register)
+        #print(self.free_registers)
 
     def set_reg_list_free(self, reg_list):
-        reg_list.sort(reverse=True)
         for reg in reg_list:
             self.set_register_free(reg)
 
@@ -155,14 +159,12 @@ class Assembly:
             instrn = self.ops_map[statement.stat_type]
             res_reg = self.get_free_register()
             self.add_stat("%s $%s, $%s, $%s" % (instrn, res_reg, el1_reg, el2_reg))
-            first_free = min(el1_reg, el2_reg)
-            last_free = max(el1_reg, el2_reg)
-            self.set_register_free(first_free)
+            self.set_reg_list_free([el1_reg, el2_reg])
         
             dest_reg = self.get_free_register()
             self.curr_temp = dest_reg
             self.add_stat("move $%s, $%s" % (dest_reg, res_reg))
-            self.set_reg_list_free([last_free, res_reg])
+            self.set_reg_list_free(res_reg)
             print(self.free_registers)
 
         elif statement.stat_type in self.logical_ops:
@@ -178,33 +180,32 @@ class Assembly:
             else:
                 el2_reg = self.curr_temp
 
-            if statement.stat_type == "GT" or statement.stat_type == "LE":
-                temp = el2_reg
-                el2_reg = el1_reg
-                el1_reg = temp
-
             cond_reg = self.get_free_register()
-            self.add_stat("slt $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
-            first_free = min(el1_reg, el2_reg)
-            last_free = max(el1_reg, el2_reg)
-            self.set_register_free(first_free)
-            last_free_already = False
-            if statement.stat_type == "LE" or statement.stat_type == "GE":
-                neg_reg = self.get_free_register()
-                self.add_stat("not $%s, $%s" % (neg_reg, cond_reg))
-                self.set_register_free(cond_reg)
-                cond_reg = neg_reg
-                self.set_register_free(last_free)
-                last_free_already = True
 
+            if statement.stat_type == "EQ":
+                self.add_stat("seq $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+                self.set_reg_list_free([el1_reg, el2_reg])
+            elif statement.stat_type == "NE":
+                self.add_stat("sne $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+                self.set_reg_list_free([el1_reg, el2_reg])
+            else: # LT, GT, LE, GE
+                if statement.stat_type == "GT" or statement.stat_type == "LE":
+                    temp = el2_reg
+                    el2_reg = el1_reg
+                    el1_reg = temp
+    
+                self.add_stat("slt $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+                self.set_reg_list_free([el1_reg, el2_reg])
+                if statement.stat_type == "LE" or statement.stat_type == "GE":
+                    neg_reg = self.get_free_register()
+                    self.add_stat("not $%s, $%s" % (neg_reg, cond_reg))
+                    self.set_register_free(cond_reg)
+                    cond_reg = neg_reg
 
             dest_reg = self.get_free_register()
             self.curr_temp = dest_reg
             self.add_stat("move $%s, $%s" % (dest_reg, cond_reg))
-            if not last_free_already:
-                self.set_reg_list_free([last_free, cond_reg])
-            else:
-                self.set_register_free(cond_reg)
+            self.set_register_free(cond_reg)
             
 
         elif statement.stat_type == "ASGN":
@@ -248,18 +249,8 @@ class Assembly:
                 l_curr = self.gen_code_var(lh_var, True)
                 self.add_stat("sw $%s, 0($%s)" % (r_reg, l_curr))
                 # free registers
-                if int(r_reg[-1]) > int(l_curr[-1]):
-                    self.set_register_free(r_reg)
-                    self.set_register_free(l_curr)
-                else:
-                    self.set_register_free(l_curr)
-                    self.set_register_free(r_reg)
-
-
-
+                self.set_reg_list_free([r_reg, l_curr])
             
-            
-
             print(self.free_registers)
        
 
@@ -283,7 +274,8 @@ class Assembly:
                 ["s%d" % (x) for x in range(8)] + \
                 ["t%d" % (x) for x in range(10)]
                 
-        self.free_registers.reverse()
+        #self.free_registers.reverse()
+        heapify(self.free_registers)
 
         func_name = self.ast.functions[blockid]
         locals_space = self.size_table(func_name)
@@ -313,6 +305,7 @@ class Assembly:
                     self.gen_assembly_stat(stat)
 
                 self.add_stat("bne $%s, $0, label%d" % ( self.curr_temp, block.goto1 ))
+                print("curr temp", self.curr_temp)
                 self.set_register_free(self.curr_temp)
                 self.add_stat("j label%d" % ( block.goto2 ))
 
