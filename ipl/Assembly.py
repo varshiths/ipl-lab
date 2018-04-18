@@ -22,6 +22,7 @@ class Assembly:
         self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'==', 'NE':'!=', 'AND':'&&', 'OR':'||'}
         self.code = []
         self.curr_temp = None
+        self.return_block = False
 
     def add_stat(self, string, comment=None, indent=True):
         string = str(string)
@@ -97,6 +98,16 @@ class Assembly:
         for reg in reg_list:
             self.set_register_free(reg)
 
+
+    def get_offset(self, var_name):
+        try:
+            offset = self.offsets[var_name]
+            return (True, offset)
+        except KeyError:
+            # global
+            return (False, "global_" + var_name)
+
+
     def gen_code_var(self, stat, lhs=False): # handle DEREF, ADDR and VAR statement types
         print("gen_code_var")
         print(stat)
@@ -107,11 +118,16 @@ class Assembly:
             return reg
         else:
             var_name = self.extract_var_name(stat.tokens[0])
-            offset = self.offsets[var_name]
+            local, offset = self.get_offset(var_name)
+            #offset = self.offsets[var_name]
             if stat.stat_type == "VAR":
                 print("var")
-                reg = self.get_free_register()    
-                self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                reg = self.get_free_register()
+                if local:    
+                    self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                else:
+                    self.add_stat("lw $%s, %s" % (reg, offset))
+
                 return reg
             else:
                 deref_ct = stat.tokens[0].count("*")
@@ -119,14 +135,23 @@ class Assembly:
                 net_deref = deref_ct - addr_ct
                 if net_deref == 0: # VAR
                     reg = self.get_free_register()    
-                    self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    if local:    
+                        self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    else:
+                        self.add_stat("lw $%s, %s" % (reg, offset))
+
                     return reg
                 elif net_deref > 0: # DEREF
                     deref_ct = net_deref
                     reg = self.get_free_register()
-                    self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    if local:
+                        self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    else:
+                        self.add_stat("lw $%s, %s" % (reg, offset))
+
                     reg_prev = reg
                     reg_curr = reg
+                    dest_reg = None
                     if lhs:
                         derefs = deref_ct-1
                     else:
@@ -138,14 +163,27 @@ class Assembly:
                         # mark reg_prev free
                         self.set_register_free(reg_prev)
                         reg_prev = reg_curr
+                        if self.return_block:
+                            dest_reg = self.get_free_register()
+                            self.add_stat("move $%s, $%s" % (dest_reg, reg_curr))
+                            self.set_register_free(reg_curr)
+                            reg_prev = dest_reg
 
-                    return reg_curr
+                        
+                    if not self.return_block:
+                        return reg_curr
+                    else:
+                        return dest_reg
 
                 else: # ADDR
                     print("addr")
                     print(stat)                  
                     reg = self.get_free_register()
-                    self.add_stat("addi $%s, $sp, %s" % (reg, offset))
+                    if local:
+                        self.add_stat("addi $%s, $sp, %s" % (reg, offset))
+                    else:
+                        self.add_stat("la $%s, %s" % (reg, offset))
+
                     return reg
 
         
@@ -344,6 +382,9 @@ class Assembly:
 
 
         print(block.return_type)
+        if block.return_type != "false":
+            self.return_block = True
+
         self.add_raw_string("label%d:" % (blockid))
         list_stat = block.list_stat
         for stat in list_stat:
@@ -357,6 +398,7 @@ class Assembly:
         self.add_stat("move $v1, $%s" % (ret_reg), "move return value to $v1")
        
 
+        self.return_block = False
         #self.add_raw_string("label%d:" % (blockid))
         self.add_stat("j epilogue_%s" % (func_name))
 
