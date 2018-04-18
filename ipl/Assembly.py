@@ -305,8 +305,12 @@ class Assembly:
             print(deref_ct)
             
             if deref_ct == 0:
-                l_offset = self.offsets[lh_var.tokens[0]]
-                self.add_stat("sw $%s, %s($sp)" % (r_reg, l_offset))
+                local, l_offset = self.get_offset(lh_var.tokens[0])
+                if local:
+                    self.add_stat("sw $%s, %s($sp)" % (r_reg, l_offset))
+                else:
+                    self.add_stat("sw $%s, %s" % (r_reg, l_offset))
+
                 self.set_register_free(r_reg)
             else:
                 l_curr = self.gen_code_var(lh_var, True)
@@ -419,6 +423,7 @@ class Assembly:
 
         self.add_raw_string("label%d:" % (blockid))
         list_stat = block.list_stat
+        ret_reg = None
         for stat in list_stat:
             print(stat)
             reg = self.gen_assembly_stat(stat)
@@ -443,7 +448,7 @@ class Assembly:
 
         self.add_stat("")
         self.add_raw_string("# Epilogue begins")
-        self.add_stat("epilogue_%s:" % (func_name))
+        self.add_stat("epilogue_%s:" % (func_name), None, False)
 
         self.add_stat("add $sp, $sp, %d" % (8 + locals_space))
         self.add_stat("lw $fp, -4($sp)")
