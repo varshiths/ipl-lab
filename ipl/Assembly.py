@@ -158,7 +158,11 @@ class Assembly:
 
         print("statement type", statement.stat_type)
 
-        if statement.stat_type in self.ops_map: # TODO
+        if statement.stat_type in set(["VAR", "CONST", "DEREF", "ADDR"]):
+            reg = self.gen_code_var(statement)
+            return reg
+
+        elif statement.stat_type in self.ops_map: # TODO
             el1 = statement.tokens[-3]
             el2 = statement.tokens[-1]
             if el1.stat_type != "place":
@@ -181,6 +185,7 @@ class Assembly:
             self.add_stat("move $%s, $%s" % (dest_reg, res_reg))
             self.set_reg_list_free(res_reg)
             print(self.free_registers)
+            return dest_reg
 
         elif statement.stat_type in self.logical_ops:
             el1 = statement.tokens[-3]
@@ -267,6 +272,7 @@ class Assembly:
                 self.set_reg_list_free([r_reg, l_curr])
             
             print(self.free_registers)
+
        
 
 
@@ -281,7 +287,7 @@ class Assembly:
         self.add_stat("sw $fp, -4($sp)", save_fp_string)
         self.add_stat("sub $fp, $sp, 8", update_fp_string)
         self.add_stat("sub $sp, $sp, %d" % ( 8 + locals_space ), space_locals_string)
-        self.add_raw_string("# Prologue begins")
+        self.add_raw_string("# Prologue ends")
 
     def gen_func_code(self, blockid):
 
@@ -336,7 +342,22 @@ class Assembly:
             blockid += 1
             block = self.ast.blocks[blockid]
 
+
+        print(block.return_type)
         self.add_raw_string("label%d:" % (blockid))
+        list_stat = block.list_stat
+        for stat in list_stat:
+            print(stat)
+            reg = self.gen_assembly_stat(stat)
+            if reg is not None:
+                ret_reg = reg
+            else:
+                ret_reg = self.curr_temp
+
+        self.add_stat("move $v1, $%s" % (ret_reg), "move return value to $v1")
+       
+
+        #self.add_raw_string("label%d:" % (blockid))
         self.add_stat("j epilogue_%s" % (func_name))
 
         # generate epilogue
