@@ -7,4 +7,4 @@ clean:
 
 runtest:
 
-	python3 main.py test
+	python3 Parser.py test.c

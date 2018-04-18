@@ -11,6 +11,8 @@ space_locals_string = "Make space for the locals"
 
 return_string = "Jump back to the called procedure"
 
+return_addr_fp_space = 8
+
 class Assembly:
 
     def initialise(self, symbol_table, ast):
@@ -34,32 +36,45 @@ class Assembly:
     def add_raw_string(self, string):
         self.add_stat(string, None, False)
 
-    def get_offsets(self, func_name):
+    def build_access_table(self, func_name):
+        parameters = self.symbol_table.table[func_name]["parameters"]
         symbol_table = self.symbol_table.table[func_name]["symbol_table"]
+
         offsets_dict = {}
         offset_so_far = 0
-        for local, attr in sorted(symbol_table.items()):
+        
+        for name, attr in sorted(symbol_table.items()):
             size = self.get_type_size(attr)
-            offsets_dict[local] = offset_so_far + size
+            offsets_dict[name] = offset_so_far + size
             offset_so_far += size
 
-        return offsets_dict
+        offset_so_far += return_addr_fp_space
 
+        for name, attr in parameters.items():
+            size = self.get_type_size(attr)
+            offsets_dict[name] = offset_so_far + size
+            offset_so_far += size
 
-    def size_table(self, func_name):
+        self.offsets = offsets_dict
+
+    def size_table_params(self, func_name):
         param_size = sum( [ self.get_type_size(type_dict) for name, type_dict in self.symbol_table.table[func_name]["parameters"].items() ] )
-        locals_size = sum( [ self.get_type_size(type_dict) for name, type_dict in self.symbol_table.table[func_name]["symbol_table"].items() ] )
+        return param_size
 
-        return param_size + locals_size
+    def size_table_locals(self, func_name):
+        locals_size = sum( [ self.get_type_size(type_dict) for name, type_dict in self.symbol_table.table[func_name]["symbol_table"].items() ] )
+        return locals_size
 
     def extract_var_name(self, string):
-        var_str = "(VAR)"
-        last_var_pos = string.rfind(var_str)
-        if last_var_pos == -1:
-            var_name = string
-        else:
-            p = last_var_pos + len(var_str)
-            var_name = string[p:]
+
+        deref_char = "*"
+        ref_char = "&"
+
+        pos1 = string.rfind(deref_char)
+        pos2 = string.rfind(ref_char)
+
+        index = max(pos1, pos2)        
+        var_name = string[index+1:]
 
         return var_name
 
@@ -278,8 +293,8 @@ class Assembly:
         heapify(self.free_registers)
 
         func_name = self.ast.functions[blockid]
-        locals_space = self.size_table(func_name)
-        self.offsets = self.get_offsets(func_name)
+        locals_space = self.size_table_locals(func_name)
+        self.build_access_table(func_name)
 
         # directives
         self.add_stat(".text", dot_text_string)

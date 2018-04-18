@@ -95,7 +95,7 @@ class Statement:
             for a in self.tokens:
                 list_token_strings.append(a.__str__())
 
-        return "(" + self.stat_type + ")" + " ".join(list_token_strings)
+        return " ".join(list_token_strings)
 
 class ASTNode:
 

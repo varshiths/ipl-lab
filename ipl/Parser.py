@@ -790,9 +790,7 @@ class Parser:
                 "dnp" : False
             }
 
-            if ret_type_lop["level"] != 0:
-                raise Exception("Pointer arithmetic is not permitted")
-            if ret_type_rop["level"] != 0:
+            if ret_type["base_type"] != "boolean" and ret_type["level"] != 0:
                 raise Exception("Pointer arithmetic is not permitted")
             
             if node.label == "UMINUS":
