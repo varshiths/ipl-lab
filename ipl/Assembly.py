@@ -11,6 +11,11 @@ space_locals_string = "Make space for the locals"
 
 return_string = "Jump back to the called procedure"
 
+func_actv_record_c_string = "setting up activation record for called function"
+func_call_string = "function call"
+func_actv_record_d_string = "destroying activation record of called function"
+func_call_ret_val_string = "using the return value of called function"
+
 return_addr_fp_space = 8
 
 class Assembly:
@@ -267,10 +272,39 @@ class Assembly:
                 self.set_reg_list_free([r_reg, l_curr])
             
             print(self.free_registers)
-       
+
+        elif statement.stat_type in [ "func_ret", "func_no_ret" ]:
+
+            print("FCALLS", statement)
+
+            func_name_index = 0
+            if statement.stat_type == "func_ret":
+                func_name_index = 2
+            func_name = statement.tokens[func_name_index]
+            param_size = self.size_table_params(func_name)
+
+            self.add_stat("", comment=func_actv_record_c_string, indent=False)
+
+            # set up arguments
+            parameters = self.symbol_table[func_name]["parameters"]
+            offset = - self.size_table_params(func_name)
+            for i, (name, attr) in enumerate(parameters.items()):
+                size = self.get_type_size(attr)
+                offset += size
+
+                reg = self.gen_code_var(statement.tokens[func_name_index + 1 + i])
+                self.add_stat("sw $%s, %d($sp)" % (reg, offset))
+                self.set_register_free(reg)
 
 
+            self.add_stat("sub $sp, $sp, %d" % param_size)
+            self.add_stat("jal %s" % func_name, func_call_string)
+            self.add_stat("add $sp, $sp, %d" % param_size, func_actv_record_d_string)
 
+            if statement.stat_type == "func_ret":
+                reg = self.get_free_register()
+                self.add_stat("move $%s, $v1" % reg, func_call_ret_val_string)
+                self.curr_temp = reg
 
         pass
 
