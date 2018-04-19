@@ -28,6 +28,8 @@ class Assembly:
         self.code = []
         self.curr_temp = None
         self.return_block = False
+        self.local_symbol_table = None
+        self.cond_label = 0
 
     def add_stat(self, string, comment=None, indent=True):
         string = str(string)
@@ -45,6 +47,7 @@ class Assembly:
     def build_access_table(self, func_name):
         parameters = self.symbol_table.table[func_name]["parameters"]
         symbol_table = self.symbol_table.table[func_name]["symbol_table"]
+        self.local_symbol_table = symbol_table
 
         offsets_dict = {}
         offset_so_far = 0
@@ -84,18 +87,28 @@ class Assembly:
 
         return var_name
 
-    def get_free_register(self):
+    def get_free_register(self, float_var):
         # return free register
         # remove from free list
-        try:
-            reg = heappop(self.free_registers)
-        except IndexError:
-            print("No free registers")
+        if not float_var:
+            try:
+                reg = heappop(self.free_registers)
+            except IndexError:
+                print("No free registers")
+        else:
+            try:
+                reg = heappop(self.free_float_registers)
+            except IndexError:
+                print("No free registers")
 
         return reg
 
     def set_register_free(self, register):
-        heappush(self.free_registers, register)
+        if register[0] != 'f':
+            heappush(self.free_registers, register)
+        else:
+            heappush(self.free_float_registers, register)
+
         print("setting reg free ",register)
         #print(self.free_registers)
 
@@ -112,26 +125,60 @@ class Assembly:
             # global
             return (False, "global_" + var_name)
 
+    def check_float(self, var_name):
+        data_type = None
+        try:
+            data_type = self.local_symbol_table[var_name]    
+            print("local type", data_type)     
+        except KeyError:
+            # global variable
+            try:
+                data_type = self.symbol_table[var_name]
+            except KeyError:
+                # temporary
+                return False
+
+        if data_type["base_type"] == "float":
+            return True
+        else:
+            return False
 
     def gen_code_var(self, stat, lhs=False): # handle DEREF, ADDR and VAR statement types
         print("gen_code_var")
         print(stat)
+        float_var = False
+
         if stat.stat_type == "CONST":
             val = stat.tokens[0]
-            reg = self.get_free_register()
-            self.add_stat("li $%s, %s" % (reg, val))
+            if val.find('.') != -1:
+                float_var = True
+            print(stat, float_var, type(val))
+
+            reg = self.get_free_register(float_var)
+            if not float_var:       
+                self.add_stat("li $%s, %s" % (reg, val))
+            else:
+                self.add_stat("li.s $%s, %s" % (reg, val))
+
             return reg
         else:
             var_name = self.extract_var_name(stat.tokens[0])
+            float_var = self.check_float(var_name)
+            print("float_var ", var_name, float_var)
+            lw_instrn = "lw"
+            if float_var:
+                lw_instrn = "l.s"
+
             local, offset = self.get_offset(var_name)
             #offset = self.offsets[var_name]
             if stat.stat_type == "VAR":
                 print("var")
-                reg = self.get_free_register()
+                reg = self.get_free_register(float_var)
+                
                 if local:    
-                    self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                    self.add_stat("%s $%s, %s($sp)" % (lw_instrn, reg, offset))
                 else:
-                    self.add_stat("lw $%s, %s" % (reg, offset))
+                    self.add_stat("%s $%s, %s" % (lw_instrn, reg, offset))
 
                 return reg
             else:
@@ -139,16 +186,16 @@ class Assembly:
                 addr_ct = stat.tokens[0].count("&")
                 net_deref = deref_ct - addr_ct
                 if net_deref == 0: # VAR
-                    reg = self.get_free_register()    
+                    reg = self.get_free_register(float_var)    
                     if local:    
-                        self.add_stat("lw $%s, %s($sp)" % (reg, offset))
+                        self.add_stat("%s $%s, %s($sp)" % (lw_instrn, reg, offset))
                     else:
-                        self.add_stat("lw $%s, %s" % (reg, offset))
+                        self.add_stat("%s $%s, %s" % (lw_instrn, reg, offset))
 
                     return reg
                 elif net_deref > 0: # DEREF
                     deref_ct = net_deref
-                    reg = self.get_free_register()
+                    reg = self.get_free_register(False)
                     if local:
                         self.add_stat("lw $%s, %s($sp)" % (reg, offset))
                     else:
@@ -163,27 +210,26 @@ class Assembly:
                         derefs = deref_ct
 
                     for i in range(derefs):
-                        reg_curr = self.get_free_register()
-                        self.add_stat("lw $%s, 0($%s)" % (reg_curr, reg_prev))
+                        print("derefs lhs float_var", i, lhs, float_var)
+                        float_reg = False
+                        load_instrn = "lw"
+
+                        if (not lhs) and (i == derefs-1) and float_var:
+                            float_reg = True
+                            load_instrn = "l.s"
+
+                        reg_curr = self.get_free_register(float_reg)
+                        self.add_stat("%s $%s, 0($%s)" % (load_instrn, reg_curr, reg_prev))
                         # mark reg_prev free
                         self.set_register_free(reg_prev)
                         reg_prev = reg_curr
-                        if self.return_block:
-                            dest_reg = self.get_free_register()
-                            self.add_stat("move $%s, $%s" % (dest_reg, reg_curr))
-                            self.set_register_free(reg_curr)
-                            reg_prev = dest_reg
 
-                        
-                    if not self.return_block:
-                        return reg_curr
-                    else:
-                        return dest_reg
+                    return reg_curr
 
                 else: # ADDR
                     print("addr")
                     print(stat)                  
-                    reg = self.get_free_register()
+                    reg = self.get_free_register(False)
                     if local:
                         self.add_stat("addi $%s, $sp, %s" % (reg, offset))
                     else:
@@ -217,16 +263,27 @@ class Assembly:
                 el2_reg = self.gen_code_var(el2)
             else:
                 el2_reg = self.curr_temp
+
+            float_op = False
+            if el1_reg[0] == 'f' or el2_reg[0] == 'f':
+                float_op = True
          
             instrn = self.ops_map[statement.stat_type]
-            res_reg = self.get_free_register()
+            if float_op:
+                instrn = instrn + ".s"
+
+            res_reg = self.get_free_register(float_op)
             self.add_stat("%s $%s, $%s, $%s" % (instrn, res_reg, el1_reg, el2_reg))
             self.set_reg_list_free([el1_reg, el2_reg])
         
-            dest_reg = self.get_free_register()
+            dest_reg = self.get_free_register(float_op)
             self.curr_temp = dest_reg
-            self.add_stat("move $%s, $%s" % (dest_reg, res_reg))
-            self.set_reg_list_free(res_reg)
+            if not float_op:
+                self.add_stat("move $%s, $%s" % (dest_reg, res_reg))
+            else:
+                self.add_stat("mov.s $%s, $%s" % (dest_reg, res_reg))
+
+            self.set_register_free(res_reg)
             print(self.free_registers)
             return dest_reg
 
@@ -243,34 +300,90 @@ class Assembly:
             else:
                 el2_reg = self.curr_temp
 
-            cond_reg = self.get_free_register()
+            float_op = False
+            if el1_reg[0] == 'f' or el2_reg[0] == 'f':
+                float_op = True
 
-            if statement.stat_type == "EQ":
-                self.add_stat("seq $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
-                self.set_reg_list_free([el1_reg, el2_reg])
-            elif statement.stat_type == "NE":
-                self.add_stat("sne $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
-                self.set_reg_list_free([el1_reg, el2_reg])
-            else: # LT, GT, LE, GE
-                if statement.stat_type == "GT" or statement.stat_type == "LE":
-                    temp = el2_reg
-                    el2_reg = el1_reg
-                    el1_reg = temp
-    
-                self.add_stat("slt $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
-                self.set_reg_list_free([el1_reg, el2_reg])
-                if statement.stat_type == "LE" or statement.stat_type == "GE":
-                    neg_reg = self.get_free_register()
-                    self.add_stat("not $%s, $%s" % (neg_reg, cond_reg))
-                    self.set_register_free(cond_reg)
-                    cond_reg = neg_reg
+            if not float_op:
+                cond_reg = self.get_free_register()
 
-            dest_reg = self.get_free_register()
-            self.curr_temp = dest_reg
-            self.add_stat("move $%s, $%s" % (dest_reg, cond_reg))
-            self.set_register_free(cond_reg)
+                if statement.stat_type == "EQ":
+                    self.add_stat("seq $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+                    self.set_reg_list_free([el1_reg, el2_reg])
+                elif statement.stat_type == "NE":
+                    self.add_stat("sne $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+                    self.set_reg_list_free([el1_reg, el2_reg])
+                else: # LT, GT, LE, GE
+                    if statement.stat_type == "GT" or statement.stat_type == "LE":
+                        temp = el2_reg
+                        el2_reg = el1_reg
+                        el1_reg = temp
+        
+                    self.add_stat("slt $%s, $%s, $%s" % (cond_reg, el1_reg, el2_reg))
+                    self.set_reg_list_free([el1_reg, el2_reg])
+                    if statement.stat_type == "LE" or statement.stat_type == "GE":
+                        neg_reg = self.get_free_register()
+                        self.add_stat("not $%s, $%s" % (neg_reg, cond_reg))
+                        self.set_register_free(cond_reg)
+                        cond_reg = neg_reg
+
+                dest_reg = self.get_free_register()
+                self.curr_temp = dest_reg
+                self.add_stat("move $%s, $%s" % (dest_reg, cond_reg))
+                self.set_register_free(cond_reg)
+            else: 
+                # floating point comparison
+                if statement.stat_type != "NE":
+                    cmp_instrn = "c.lt.s"
+                    if statement.stat_type == "EQ":
+                        cmp_instrn = "c.eq.s"
+                    elif statement.stat_type == "LE":
+                        cmp_instrn = "c.le.s"
+                    elif statement.stat_type == "GT":
+                        temp = el2_reg
+                        el2_reg = el1_reg
+                        el1_reg = temp
+                    elif statement.stat_type == "GE":
+                        cmp_instrn = "c.le.s"
+                        temp = el2_reg
+                        el2_reg = el1_reg
+                        el1_reg = temp
+
+                    self.add_stat("%s $%s, $%s" % (cmp_instrn, el1_reg, el2_reg))
+                    self.set_reg_list_free([el1_reg, el2_reg])
+                    self.add_stat("bc1f L_CondFalse_%d" % (self.cond_label))
+                    reg = self.get_free_register(False)
+                    self.add_stat("li $%s, 1" % (reg))
+                    self.add_stat("j L_CondEnd_%d" % (self.cond_label))
+                    self.add_raw_string("L_CondFalse_%d:" % (self.cond_label))
+                    self.add_stat("li $%s, 0" % (reg))
+                    self.add_raw_string("L_CondEnd_%d:" % (self.cond_label))
+                    dest_reg = self.get_free_register(False)
+                    self.curr_temp = dest_reg
+                    self.add_stat("move $%s, $%s" % (dest_reg, reg))
+                    self.set_register_free(reg)
+
+                    self.cond_label += 1
+
+                else:
+                    cmp_instrn = "c.eq.s"
+                    self.add_stat("%s $%s, $%s" % (cmp_instrn, el1_reg, el2_reg))
+                    self.set_reg_list_free([el1_reg, el2_reg])
+                    self.add_stat("bc1f L_CondTrue_%d" % (self.cond_label))
+                    reg = self.get_free_register(False)
+                    self.add_stat("li $%s, 0" % (reg))
+                    self.add_stat("j L_CondEnd_%d" % (self.cond_label))
+                    self.add_raw_string("L_CondTrue_%d:" % (self.cond_label))
+                    self.add_stat("li $%s, 1" % (reg))
+                    self.add_raw_string("L_CondEnd_%d:" % (self.cond_label))
+                    dest_reg = self.get_free_register(False)
+                    self.curr_temp = dest_reg
+                    self.add_stat("move $%s, $%s" % (dest_reg, reg))
+                    self.set_register_free(reg)
+
+                    self.cond_label += 1
+
             
-
         elif statement.stat_type == "ASGN":
             # RHS
             rh_var = tokens[-1]
@@ -303,18 +416,25 @@ class Assembly:
             print(lh_var.tokens)
             deref_ct = lh_var.tokens[0].count("*")
             print(deref_ct)
-            
+            sw_instrn = "sw"
+            if r_reg[0] == 'f':
+                sw_instrn = "s.s"
+
             if deref_ct == 0:
                 local, l_offset = self.get_offset(lh_var.tokens[0])
                 if local:
-                    self.add_stat("sw $%s, %s($sp)" % (r_reg, l_offset))
+                    self.add_stat("%s $%s, %s($sp)" % (sw_instrn, r_reg, l_offset))
                 else:
-                    self.add_stat("sw $%s, %s" % (r_reg, l_offset))
+                    self.add_stat("%s $%s, %s" % (sw_instrn, r_reg, l_offset))
 
                 self.set_register_free(r_reg)
             else:
                 l_curr = self.gen_code_var(lh_var, True)
-                self.add_stat("sw $%s, 0($%s)" % (r_reg, l_curr))
+                if r_reg[0] != 'f':
+                    self.add_stat("sw $%s, 0($%s)" % (r_reg, l_curr))
+                else:
+                    self.add_stat("s.s $%s, 0($%s)" % (r_reg, l_curr))
+
                 # free registers
                 self.set_reg_list_free([r_reg, l_curr])
             
@@ -329,6 +449,8 @@ class Assembly:
                 func_name_index = 2
             func_name = statement.tokens[func_name_index]
             param_size = self.size_table_params(func_name)
+            func_ret_type = self.symbol_table[func_name]["return_type"]
+            print(func_ret_type)
 
             self.add_stat("", comment=func_actv_record_c_string, indent=False)
 
@@ -348,9 +470,14 @@ class Assembly:
             self.add_stat("add $sp, $sp, %d" % param_size, func_actv_record_d_string)
 
             if statement.stat_type == "func_ret":
-                reg = self.get_free_register()
-                self.add_stat("move $%s, $v1" % reg, func_call_ret_val_string)
-                self.curr_temp = reg
+                if func_ret_type["base_type"] == "float" and func_ret_type["level"] == 0:
+                    reg = self.get_free_register(True)
+                    self.add_stat("move $%s, $f0" % reg, func_call_ret_val_string)
+                    self.curr_temp = reg
+                else:
+                    reg = self.get_free_register(False)
+                    self.add_stat("move $%s, $v1" % reg, func_call_ret_val_string)
+                    self.curr_temp = reg
 
         pass
 
@@ -368,9 +495,12 @@ class Assembly:
         self.free_registers = \
                 ["s%d" % (x) for x in range(8)] + \
                 ["t%d" % (x) for x in range(10)]
+
+        self.free_float_registers = ["f%d" % (x) for x in range(10, 31, 2)]
                 
         #self.free_registers.reverse()
         heapify(self.free_registers)
+        heapify(self.free_float_registers)
 
         func_name = self.ast.functions[blockid]
         locals_space = self.size_table_locals(func_name)
@@ -432,7 +562,12 @@ class Assembly:
             else:
                 ret_reg = self.curr_temp
 
-        self.add_stat("move $v1, $%s" % (ret_reg), "move return value to $v1")
+        if ret_reg is not None:
+            if ret_reg[0] != 'f':
+                self.add_stat("move $v1, $%s" % (ret_reg), "move return value to $v1")
+            else:
+                self.add_stat("mov.s $f0, $%s" % (ret_reg), "move return value to $f0")
+
        
 
         self.return_block = False
