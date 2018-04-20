@@ -761,12 +761,11 @@ class Parser:
                 "dnp" : False
             }
 
-            if ret_type_lop["level"] != 0:
-                raise Exception("Pointer arithmetic is not permitted")
-            if ret_type_rop["level"] != 0:
-                raise Exception("Pointer arithmetic is not permitted")
-
             if node.label in ['PLUS', 'MINUS', 'MUL', 'DIV']:
+                if ret_type_lop["level"] != 0:
+                    raise Exception("Pointer arithmetic is not permitted")
+                if ret_type_rop["level"] != 0:
+                    raise Exception("Pointer arithmetic is not permitted")
                 if ret_type_lop["base_type"] == "boolean" or ret_type_lop != ret_type_rop:
                     raise Exception("Type mismatch for "+node.label+" at: ")
                 ntype["base_type"] = ret_type_lop["base_type"]

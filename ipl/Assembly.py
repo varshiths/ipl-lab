@@ -633,20 +633,20 @@ class Assembly:
         self.add_stat("")
 
     def print_code(self):
-        pp = pprint.PrettyPrinter(indent=4)
+        # pp = pprint.PrettyPrinter(indent=4)
 
-        print("Functions:")
-        pp.pprint(self.ast.functions)
+        # print("Functions:")
+        # pp.pprint(self.ast.functions)
         
-        print("\nBlocks:")
-        pp.pprint(self.ast.blocks)
+        # print("\nBlocks:")
+        # pp.pprint(self.ast.blocks)
 
-        print("\nTemporaries:")
-        pp.pprint(self.ast.temporaries)
+        # print("\nTemporaries:")
+        # pp.pprint(self.ast.temporaries)
 
-        print("\nSymbol Table:")
-        pp.pprint(self.symbol_table.table)
+        # print("\nSymbol Table:")
+        # pp.pprint(self.symbol_table.table)
 
-        print("\nCode:")
+        # print("\nCode:")
         for stat in self.code:
             print(stat)
