@@ -23,13 +23,13 @@ class Assembly:
     def initialise(self, symbol_table, ast):
         self.symbol_table = symbol_table
         self.ast = ast
-        self.ops_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'UMINUS':'negu'}
-        self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'==', 'NE':'!=', 'AND':'&&', 'OR':'||'}
+        self.ops_map = {'PLUS': 'add', 'MINUS':'sub', 'MUL':'mul', 'DIV':'div', 'AND':'and', 'OR':'or'}
+        self.unary_ops_map = {'UMINUS':'negu', 'NOT':'xori'}
+        self.logical_ops = {'LT':'<', 'GT':'>', 'LE':'<=', 'GE':'>=', 'EQ':'==', 'NE':'!='}
         self.code = []
-        self.curr_temp = None
-        self.return_block = False
-        self.local_symbol_table = None
+        self.temps = []
         self.cond_label = 0
+        self.curr_function = None
 
     def add_stat(self, string, comment=None, indent=True):
         string = str(string)
@@ -47,7 +47,6 @@ class Assembly:
     def build_access_table(self, func_name):
         parameters = self.symbol_table.table[func_name]["parameters"]
         symbol_table = self.symbol_table.table[func_name]["symbol_table"]
-        self.local_symbol_table = symbol_table
 
         offsets_dict = {}
         offset_so_far = 0
@@ -87,7 +86,7 @@ class Assembly:
 
         return var_name
 
-    def get_free_register(self, float_var):
+    def get_free_register(self, float_var=False):
         # return free register
         # remove from free list
         if not float_var:
@@ -126,17 +125,7 @@ class Assembly:
             return (False, "global_" + var_name)
 
     def check_float(self, var_name):
-        data_type = None
-        try:
-            data_type = self.local_symbol_table[var_name]    
-            print("local type", data_type)     
-        except KeyError:
-            # global variable
-            try:
-                data_type = self.symbol_table[var_name]
-            except KeyError:
-                # temporary
-                return False
+        data_type, exists = self.symbol_table.get_entry(var_name, self.curr_function)
 
         if data_type["base_type"] == "float":
             return True
@@ -251,18 +240,49 @@ class Assembly:
             reg = self.gen_code_var(statement)
             return reg
 
-        elif statement.stat_type in self.ops_map: # TODO
+        elif statement.stat_type in self.unary_ops_map:
+            el = statement.tokens[-1]
+            if el.stat_type != "place":
+                el_reg = self.gen_code_var(el)
+            else:
+                el_reg = self.temps.pop()
+     
+            float_op = False
+            if el_reg[0] == 'f':
+                float_op = True
+
+            reg = self.get_free_register(float_op)
+
+            if statement.stat_type == "NOT":
+                self.add_stat("xori $%s, $%s, 1" % (reg, el_reg))
+            elif statement.stat_type == "UMINUS":
+                self.add_stat("negu $%s $%s" % (reg, el_reg))
+
+            self.set_register_free(el_reg)
+
+            dest_reg = self.get_free_register(float_op)
+
+            if not float_op:
+                self.add_stat("move $%s, $%s" % (dest_reg, reg))
+            else:
+                self.add_stat("mov.s $%s, $%s" % (dest_reg, reg))
+
+            self.set_register_free(reg)
+            self.temps.insert(0, dest_reg)
+
+
+        elif statement.stat_type in self.ops_map:
             el1 = statement.tokens[-3]
             el2 = statement.tokens[-1]
             if el1.stat_type != "place":
                 el1_reg = self.gen_code_var(el1)
             else:
-                el1_reg = self.curr_temp
+                el1_reg = self.temps.pop()
 
             if el2.stat_type != "place":
                 el2_reg = self.gen_code_var(el2)
             else:
-                el2_reg = self.curr_temp
+                el2_reg = self.temps.pop()
 
             float_op = False
             if el1_reg[0] == 'f' or el2_reg[0] == 'f':
@@ -277,7 +297,7 @@ class Assembly:
             self.set_reg_list_free([el1_reg, el2_reg])
         
             dest_reg = self.get_free_register(float_op)
-            self.curr_temp = dest_reg
+            self.temps.insert(0, dest_reg)
             if not float_op:
                 self.add_stat("move $%s, $%s" % (dest_reg, res_reg))
             else:
@@ -285,7 +305,6 @@ class Assembly:
 
             self.set_register_free(res_reg)
             print(self.free_registers)
-            return dest_reg
 
         elif statement.stat_type in self.logical_ops:
             el1 = statement.tokens[-3]
@@ -293,12 +312,12 @@ class Assembly:
             if el1.stat_type != "place":
                 el1_reg = self.gen_code_var(el1)
             else:
-                el1_reg = self.curr_temp
+                el1_reg = self.temps.pop()
 
             if el2.stat_type != "place":
                 el2_reg = self.gen_code_var(el2)
             else:
-                el2_reg = self.curr_temp
+                el2_reg = self.temps.pop()
 
             float_op = False
             if el1_reg[0] == 'f' or el2_reg[0] == 'f':
@@ -328,7 +347,7 @@ class Assembly:
                         cond_reg = neg_reg
 
                 dest_reg = self.get_free_register()
-                self.curr_temp = dest_reg
+                self.temps.insert(0, dest_reg)
                 self.add_stat("move $%s, $%s" % (dest_reg, cond_reg))
                 self.set_register_free(cond_reg)
             else: 
@@ -359,7 +378,7 @@ class Assembly:
                     self.add_stat("li $%s, 0" % (reg))
                     self.add_raw_string("L_CondEnd_%d:" % (self.cond_label))
                     dest_reg = self.get_free_register(False)
-                    self.curr_temp = dest_reg
+                    self.temps.insert(0, dest_reg)
                     self.add_stat("move $%s, $%s" % (dest_reg, reg))
                     self.set_register_free(reg)
 
@@ -377,7 +396,7 @@ class Assembly:
                     self.add_stat("li $%s, 1" % (reg))
                     self.add_raw_string("L_CondEnd_%d:" % (self.cond_label))
                     dest_reg = self.get_free_register(False)
-                    self.curr_temp = dest_reg
+                    self.temps.insert(0, dest_reg)
                     self.add_stat("move $%s, $%s" % (dest_reg, reg))
                     self.set_register_free(reg)
 
@@ -390,25 +409,10 @@ class Assembly:
             print(rh_var)
             print("rh_var.type ", rh_var.stat_type)
             if rh_var.stat_type == "place":
-                r_reg = self.curr_temp
+                r_reg = self.temps.pop()
             else:
                 r_reg = self.gen_code_var(rh_var)
-                    
-            # if rh_var.stat_type == "CONST":
-            #     val = rh_var.tokens[0]
-            #     r_reg = self.get_free_register()
-            #     instrn = "li $%s, %s" % (r_reg, val)
-            #     print(instrn)
-            #     self.add_stat(instrn)
-            # elif rh_var.stat_type == "VAR":
-            #     r_reg = self.get_free_register()
-            #     offset = self.offsets[rh_var.tokens[0]]
-            #     self.add_stat("lw $%s, %s($sp)" % (r_reg, offset))
-            # elif rh_var.stat_type == "ADDR":
-                
-            # elif rh_var.stat_type == "DEREF":
-            #     r_reg = self.gen_deref(rh_var)
-
+            
             # LHS
             lh_var = tokens[0]
             print(lh_var)
@@ -438,7 +442,7 @@ class Assembly:
                 # free registers
                 self.set_reg_list_free([r_reg, l_curr])
             
-            print(self.free_registers)
+            #print(self.free_registers)
 
         elif statement.stat_type in [ "func_ret", "func_no_ret" ]:
 
@@ -462,7 +466,11 @@ class Assembly:
                 offset += size
 
                 reg = self.gen_code_var(statement.tokens[func_name_index + 1 + i])
-                self.add_stat("sw $%s, %d($sp)" % (reg, offset))
+                if reg[0] != 'f':
+                    self.add_stat("sw $%s, %d($sp)" % (reg, offset))
+                else:
+                    self.add_stat("s.s $%s, %d($sp)" % (reg, offset))
+
                 self.set_register_free(reg)
 
             self.add_stat("sub $sp, $sp, %d" % param_size)
@@ -473,11 +481,11 @@ class Assembly:
                 if func_ret_type["base_type"] == "float" and func_ret_type["level"] == 0:
                     reg = self.get_free_register(True)
                     self.add_stat("move $%s, $f0" % reg, func_call_ret_val_string)
-                    self.curr_temp = reg
+                    self.temps.insert(0, reg)
                 else:
                     reg = self.get_free_register(False)
                     self.add_stat("move $%s, $v1" % reg, func_call_ret_val_string)
-                    self.curr_temp = reg
+                    self.temps.insert(0, reg)
 
         pass
 
@@ -503,6 +511,7 @@ class Assembly:
         heapify(self.free_float_registers)
 
         func_name = self.ast.functions[blockid]
+        self.curr_function = func_name
         locals_space = self.size_table_locals(func_name)
         self.build_access_table(func_name)
 
@@ -529,9 +538,9 @@ class Assembly:
                 for stat in list_stat[:-1]:
                     self.gen_assembly_stat(stat)
 
-                self.add_stat("bne $%s, $0, label%d" % ( self.curr_temp, block.goto1 ))
-                print("curr temp", self.curr_temp)
-                self.set_register_free(self.curr_temp)
+                curr_temp = self.temps.pop()
+                self.add_stat("bne $%s, $0, label%d" % (curr_temp, block.goto1 ))
+                self.set_register_free(curr_temp)
                 self.add_stat("j label%d" % ( block.goto2 ))
 
             else:
@@ -547,10 +556,7 @@ class Assembly:
             block = self.ast.blocks[blockid]
 
 
-        print(block.return_type)
-        if block.return_type != "false":
-            self.return_block = True
-
+        # return block
         self.add_raw_string("label%d:" % (blockid))
         list_stat = block.list_stat
         ret_reg = None
@@ -560,17 +566,18 @@ class Assembly:
             if reg is not None:
                 ret_reg = reg
             else:
-                ret_reg = self.curr_temp
+                ret_reg = self.temps.pop()
 
+        print("ret_reg", ret_reg)
         if ret_reg is not None:
             if ret_reg[0] != 'f':
                 self.add_stat("move $v1, $%s" % (ret_reg), "move return value to $v1")
             else:
                 self.add_stat("mov.s $f0, $%s" % (ret_reg), "move return value to $f0")
 
-       
+            self.set_register_free(ret_reg)
 
-        self.return_block = False
+       
         #self.add_raw_string("label%d:" % (blockid))
         self.add_stat("j epilogue_%s" % (func_name))
 
