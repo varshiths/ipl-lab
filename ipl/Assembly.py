@@ -605,7 +605,8 @@ class Assembly:
 
         # process each function
 
-        for blockid in self.ast.functions.keys():
+        print("functions: ", self.ast.functions)
+        for blockid in sorted(self.ast.functions.keys()):
             self.gen_func_code(blockid)
 
 
@@ -631,7 +632,7 @@ class Assembly:
         self.add_stat("")
         self.add_stat(".data")
 
-        for name, data in self.symbol_table.table.items():
+        for name, data in sorted(self.symbol_table.table.items()):
             if data["type"] == "procedure":
                 continue
             typ, val = self.get_directive_and_val(data)
