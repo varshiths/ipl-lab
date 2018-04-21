@@ -83,11 +83,11 @@ class Statement:
         list_token_strings = []
 
         if self.stat_type == "func_ret":
-            list_token_strings = self.tokens[:2]
+            list_token_strings = [ x.__str__() for x in self.tokens[:2]]
             func_name = self.tokens[2]
             args_str = ",".join([ x.__str__() for x in self.tokens[3:]])
             list_token_strings.append( "%s(%s)" % (func_name, args_str) )
-        elif self.stat_type == "func_no_ret":
+        elif self.stat_type == "CALL":
             func_name = self.tokens[0]
             args_str = ",".join([ x.__str__() for x in self.tokens[1:]])
             list_token_strings.append( "%s(%s)" % (func_name, args_str) )
@@ -258,7 +258,17 @@ class ASTNode:
             ret_list = []
             ret_list.extend(a_list[:-1])
             ret_list.extend(b_list[:-1])
-            ret_list.append(Statement([a_list[-1], "=", b_list[-1]], self.label))
+
+            lbl = self.label
+            lst_tokens = [a_list[-1], "="]
+            if b_list[-1].stat_type == "CALL":
+                lbl = "func_ret"
+                lst_tokens.extend( b_list[-1].tokens )
+            else:
+                lst_tokens.append(b_list[-1])
+
+            stat = Statement(lst_tokens, lbl)
+            ret_list.append(stat)
 
             return ret_list
 
@@ -304,31 +314,34 @@ class ASTNode:
                 args_temps.append(arg[-1])
                 args_list[i] = arg[:-1]
 
-            if call_part_of_expression:
-                curr_temp = len(ASTNode.temporaries.keys())
+            # if call_part_of_expression:
+            #     # curr_temp = len(ASTNode.temporaries.keys())
 
-                list_tokens = ["t%d" % curr_temp, "=", func_name]
-                list_tokens.extend(args_temps)
-                ASTNode.temporaries[curr_temp] = Statement(list_tokens, "func_ret")
+            #     # list_tokens = ["t%d" % curr_temp, "=", func_name]
+            #     list_tokens = [func_name]
+            #     list_tokens.extend(args_temps)
+            #     stat = Statement(list_tokens, "func_ret")
 
-                # ret_list = [ stats for stats in arg for arg in args_list ]
-                ret_list = []
-                for arg in args_list:
-                    for stats in arg:
-                        ret_list.append(stats)
-                ret_list.append(ASTNode.temporaries[curr_temp])
-                ret_list.append(Statement(["t%d" % curr_temp]))
-            else:
-                list_tokens = [func_name]
-                list_tokens.extend(args_temps)
-                stat = Statement(list_tokens, "func_no_ret")
+            #     # ret_list = [ stats for stats in arg for arg in args_list ]
+            #     ret_list = []
+            #     for arg in args_list:
+            #         for stats in arg:
+            #             ret_list.append(stats)
+            #     ret_list.append(stat)
+            #     # ret_list.append(ASTNode.temporaries[curr_temp])
+            #     # ret_list.append(Statement(["t%d" % curr_temp]))
+            # else:
 
-                # ret_list = [ stats for stats in arg for arg in args_list ]
-                ret_list = []
-                for arg in args_list:
-                    for stats in arg:
-                        ret_list.append(stats)
-                ret_list.append(stat)
+            list_tokens = [func_name]
+            list_tokens.extend(args_temps)
+            stat = Statement(list_tokens, self.label)
+
+            # ret_list = [ stats for stats in arg for arg in args_list ]
+            ret_list = []
+            for arg in args_list:
+                for stats in arg:
+                    ret_list.append(stats)
+            ret_list.append(stat)
 
             return ret_list
 

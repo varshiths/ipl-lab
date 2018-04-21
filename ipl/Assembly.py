@@ -444,7 +444,7 @@ class Assembly:
             
             #print(self.free_registers)
 
-        elif statement.stat_type in [ "func_ret", "func_no_ret" ]:
+        elif statement.stat_type in [ "func_ret", "CALL" ]:
 
             print("FCALLS", statement)
 
