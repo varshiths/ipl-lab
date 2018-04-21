@@ -93,12 +93,14 @@ class Assembly:
             try:
                 reg = heappop(self.free_registers)
             except IndexError:
-                print("No free registers")
+                # print("No free registers")
+                pass
         else:
             try:
                 reg = heappop(self.free_float_registers)
             except IndexError:
-                print("No free registers")
+                # print("No free registers")
+                pass
 
         return reg
 
@@ -108,7 +110,7 @@ class Assembly:
         else:
             heappush(self.free_float_registers, register)
 
-        print("setting reg free ",register)
+        # print("setting reg free ",register)
         #print(self.free_registers)
 
     def set_reg_list_free(self, reg_list):
@@ -133,15 +135,15 @@ class Assembly:
             return False
 
     def gen_code_var(self, stat, lhs=False): # handle DEREF, ADDR and VAR statement types
-        print("gen_code_var")
-        print(stat)
+        # print("gen_code_var")
+        # print(stat)
         float_var = False
 
         if stat.stat_type == "CONST":
             val = stat.tokens[0]
             if val.find('.') != -1:
                 float_var = True
-            print(stat, float_var, type(val))
+            # print(stat, float_var, type(val))
 
             reg = self.get_free_register(float_var)
             if not float_var:       
@@ -153,7 +155,7 @@ class Assembly:
         else:
             var_name = self.extract_var_name(stat.tokens[0])
             float_var = self.check_float(var_name)
-            print("float_var ", var_name, float_var)
+            # print("float_var ", var_name, float_var)
             lw_instrn = "lw"
             if float_var:
                 lw_instrn = "l.s"
@@ -161,7 +163,7 @@ class Assembly:
             local, offset = self.get_offset(var_name)
             #offset = self.offsets[var_name]
             if stat.stat_type == "VAR":
-                print("var")
+                # print("var")
                 reg = self.get_free_register(float_var)
                 
                 if local:    
@@ -199,7 +201,7 @@ class Assembly:
                         derefs = deref_ct
 
                     for i in range(derefs):
-                        print("derefs lhs float_var", i, lhs, float_var)
+                        # print("derefs lhs float_var", i, lhs, float_var)
                         float_reg = False
                         load_instrn = "lw"
 
@@ -216,8 +218,8 @@ class Assembly:
                     return reg_curr
 
                 else: # ADDR
-                    print("addr")
-                    print(stat)                  
+                    # print("addr")
+                    # print(stat)                  
                     reg = self.get_free_register(False)
                     if local:
                         self.add_stat("addi $%s, $sp, %s" % (reg, offset))
@@ -230,11 +232,11 @@ class Assembly:
     def gen_assembly_stat(self, statement):
 
         #self.add_stat(statement)
-        print(statement.stat_type, statement.tokens)
+        # print(statement.stat_type, statement.tokens)
         stat_type = statement.stat_type
         tokens = statement.tokens
 
-        print("statement type", statement.stat_type)
+        # print("statement type", statement.stat_type)
 
         if statement.stat_type in set(["VAR", "CONST", "DEREF", "ADDR"]):
             reg = self.gen_code_var(statement)
@@ -410,8 +412,8 @@ class Assembly:
         elif statement.stat_type == "ASGN":
             # RHS
             rh_var = tokens[-1]
-            print(rh_var)
-            print("rh_var.type ", rh_var.stat_type)
+            # print(rh_var)
+            # print("rh_var.type ", rh_var.stat_type)
             if rh_var.stat_type == "place":
                 r_reg = self.temps.pop()
             elif rh_var.stat_type == "CALL":
@@ -438,11 +440,11 @@ class Assembly:
             
             # LHS
             lh_var = tokens[0]
-            print(lh_var)
-            print(lh_var.stat_type)
-            print(lh_var.tokens)
+            # print(lh_var)
+            # print(lh_var.stat_type)
+            # print(lh_var.tokens)
             deref_ct = lh_var.tokens[0].count("*")
-            print(deref_ct)
+            # print(deref_ct)
             sw_instrn = "sw"
             if r_reg[0] == 'f':
                 sw_instrn = "s.s"
@@ -469,7 +471,7 @@ class Assembly:
 
         elif statement.stat_type == "CALL":
 
-            print("FCALLS", statement)
+            # print("FCALLS", statement)
 
             func_name_index = 0
 
@@ -541,7 +543,7 @@ class Assembly:
             self.add_raw_string("label%d:" % (blockid))
 
             if block.control_type:
-                print("control blk")
+                # print("control blk")
                 # generate stat for temporaries
                 list_stat = block.list_stat
                 for stat in list_stat[:-1]:
@@ -553,7 +555,7 @@ class Assembly:
                 self.add_stat("j label%d" % ( block.goto2 ))
 
             else:
-                print("non-control blk")
+                # print("non-control blk")
                 # generate statements
                 list_stat = block.list_stat
                 for stat in list_stat:
@@ -570,14 +572,14 @@ class Assembly:
         list_stat = block.list_stat
         ret_reg = None
         for stat in list_stat:
-            print(stat)
+            # print(stat)
             reg = self.gen_assembly_stat(stat)
             if reg is not None:
                 ret_reg = reg
             else:
                 ret_reg = self.temps.pop()
 
-        print("ret_reg", ret_reg)
+        # print("ret_reg", ret_reg)
         if ret_reg is not None:
             if ret_reg[0] != 'f':
                 self.add_stat("move $v1, $%s" % (ret_reg), "move return value to $v1")
@@ -614,7 +616,7 @@ class Assembly:
 
         # process each function
 
-        print("functions: ", self.ast.functions)
+        # print("functions: ", self.ast.functions)
         for blockid in sorted(self.ast.functions.keys()):
             self.gen_func_code(blockid)
 
