@@ -410,6 +410,25 @@ class Assembly:
             print("rh_var.type ", rh_var.stat_type)
             if rh_var.stat_type == "place":
                 r_reg = self.temps.pop()
+            elif rh_var.stat_type == "CALL":
+
+                self.gen_assembly_stat(rh_var)
+
+                func_name = rh_var.tokens[0]
+                param_size = self.size_table_params(func_name)
+
+                func_ret_type = self.symbol_table[func_name]["return_type"]
+
+                if func_ret_type["base_type"] == "float" and func_ret_type["level"] == 0:
+                    reg = self.get_free_register(True)
+                    self.add_stat("mov.s $%s, $f0" % reg, func_call_ret_val_string)
+                    # self.temps.insert(0, reg)
+                else:
+                    reg = self.get_free_register(False)
+                    self.add_stat("move $%s, $v1" % reg, func_call_ret_val_string)
+                    # self.temps.insert(0, reg)
+
+                r_reg = reg
             else:
                 r_reg = self.gen_code_var(rh_var)
             
@@ -444,17 +463,14 @@ class Assembly:
             
             #print(self.free_registers)
 
-        elif statement.stat_type in [ "func_ret", "CALL" ]:
+        elif statement.stat_type == "CALL":
 
             print("FCALLS", statement)
 
             func_name_index = 0
-            if statement.stat_type == "func_ret":
-                func_name_index = 2
+
             func_name = statement.tokens[func_name_index]
             param_size = self.size_table_params(func_name)
-            func_ret_type = self.symbol_table[func_name]["return_type"]
-            print(func_ret_type)
 
             self.add_stat("", comment=func_actv_record_c_string, indent=False)
 
@@ -477,17 +493,6 @@ class Assembly:
             self.add_stat("jal %s" % func_name, func_call_string)
             self.add_stat("add $sp, $sp, %d" % param_size, func_actv_record_d_string)
 
-            if statement.stat_type == "func_ret":
-                if func_ret_type["base_type"] == "float" and func_ret_type["level"] == 0:
-                    reg = self.get_free_register(True)
-                    self.add_stat("move $%s, $f0" % reg, func_call_ret_val_string)
-                    self.temps.insert(0, reg)
-                else:
-                    reg = self.get_free_register(False)
-                    self.add_stat("move $%s, $v1" % reg, func_call_ret_val_string)
-                    self.temps.insert(0, reg)
-
-        pass
 
     def gen_func_prologue_code(self, func_name, locals_space):
 

@@ -227,7 +227,7 @@ class ASTNode:
         #         # print(tabs(ntabs), ")", sep='')
         #     # pass
 
-    def statement(self, call_part_of_expression=True):
+    def statement(self):
         if self.label == "VAR" or self.label == "CONST":
             type((self.children[0].label))
             return [Statement([self.children[0].label], self.label)]
@@ -260,12 +260,7 @@ class ASTNode:
             ret_list.extend(b_list[:-1])
 
             lbl = self.label
-            lst_tokens = [a_list[-1], "="]
-            if b_list[-1].stat_type == "CALL":
-                lbl = "func_ret"
-                lst_tokens.extend( b_list[-1].tokens )
-            else:
-                lst_tokens.append(b_list[-1])
+            lst_tokens = [a_list[-1], "=", b_list[-1]]
 
             stat = Statement(lst_tokens, lbl)
             ret_list.append(stat)
@@ -364,10 +359,7 @@ class ASTNode:
                                 and child.label != "FUNCTION" \
                                 and child.label != "RETURN":
 
-                                if child.label == "CALL":
-                                    ASTNode.blocks[curr_block].extend(child.statement(False))
-                                else:
-                                    ASTNode.blocks[curr_block].extend(child.statement())
+                                ASTNode.blocks[curr_block].extend(child.statement())
 
                                 if i == len(node.children)-1:
                                     return [curr_block]
