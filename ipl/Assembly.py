@@ -256,7 +256,11 @@ class Assembly:
             if statement.stat_type == "NOT":
                 self.add_stat("xori $%s, $%s, 1" % (reg, el_reg))
             elif statement.stat_type == "UMINUS":
-                self.add_stat("negu $%s $%s" % (reg, el_reg))
+                if not float_op:
+                    self.add_stat("negu $%s $%s" % (reg, el_reg))
+                else:
+                    self.add_stat("neg.s $%s $%s" % (reg, el_reg))
+
 
             self.set_register_free(el_reg)
 
